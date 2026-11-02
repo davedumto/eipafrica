@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EIP Africa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<style>
+/* Layout concept: one fixed WebGL stage behind a hero and a pinned sector journey; opaque reading sections slide over it. */
+:root{
+  --ink:#0a0b0e; --panel:#101217; --line:rgba(255,255,255,.12); --line-strong:rgba(255,255,255,.28);
+  --text:#e9e8e4; --muted:#a6a8af; --body:#b4b6bd; --amber:#f0b34a;
+  --bone:#efede8; --bone-2:#e6e3dc; --on-bone:#101114; --on-bone-muted:#4a4c52; --on-bone-faint:#5b5d63; --amber-on-bone:#7a4f00;
+  --serif:'Instrument Serif','Iowan Old Style',Georgia,serif;
+  --sans:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:auto}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.in{width:100%;max-width:1344px;margin:0 auto;padding-left:max(clamp(16px,4.2vw,48px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,4.2vw,48px),env(safe-area-inset-right,0px))}
+.mono{font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--amber)}
+h1,h2,h3{margin:0;font-weight:500;text-wrap:balance}
+p{margin:0;text-wrap:pretty}
+
+/* stage */
+#stage{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;opacity:0;transition:opacity 1.2s ease;filter:saturate(.74) contrast(1.05)}
+#stage.ready{opacity:1}
+.scrim{position:fixed;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(10,11,14,.9) 0%,rgba(10,11,14,.6) 34%,rgba(10,11,14,0) 62%)}
+#pins{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.pin{position:absolute;left:0;top:0;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .5s ease;will-change:transform}
+.pin.show{opacity:1}
+.pin.flip{flex-direction:row-reverse}
+.pin i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--amber);box-shadow:0 0 0 5px rgba(240,179,74,.16);flex:none}
+.pin b{width:28px;height:1px;background:rgba(240,179,74,.7);flex:none}
+.pin span{background:rgba(10,11,14,.84);border:1px solid var(--line);padding:7px 11px;font-family:var(--mono);font-size:11px;letter-spacing:.05em;line-height:1.5;white-space:nowrap}
+.pin span em{display:block;font-style:normal;color:var(--muted)}
+#loading{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:5;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--muted);display:flex;align-items:center;gap:12px;transition:opacity .6s}
+#loading.done{opacity:0;pointer-events:none}
+#loading u{display:block;width:84px;height:2px;background:var(--line);position:relative;overflow:hidden}
+#loading u::after{content:"";position:absolute;inset:0;background:var(--amber);transform:scaleX(var(--p,0));transform-origin:left}
+
+/* header */
+header.top{position:fixed;left:0;right:0;top:0;z-index:10;padding-top:env(safe-area-inset-top,0px);transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+header.top.solid{background:rgba(10,11,14,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom-color:var(--line)}
+.ann{border-bottom:1px solid var(--line);background:rgba(16,18,23,.82)}
+.ann .in{display:flex;gap:6px 24px;justify-content:space-between;align-items:center;padding-top:9px;padding-bottom:9px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--muted)}
+.ann .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);display:inline-block;margin-right:10px}
+.ann a:hover{color:var(--amber)}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:24px;height:68px}
+.logo{display:flex;align-items:center;gap:12px;font-weight:600;font-size:17px;letter-spacing:-.01em}
+.links{display:flex;gap:34px;font-size:14px;color:#c9cad0}
+.links a:hover,.login:hover{color:var(--amber)}
+.nav-r{display:flex;align-items:center;gap:20px;font-size:14px}
+.login{color:#c9cad0}
+.btn-ghost{border:1px solid var(--line-strong);padding:0 18px;min-height:44px;display:inline-flex;align-items:center;border-radius:2px;transition:border-color .2s,color .2s}
+.btn-ghost:hover{border-color:var(--amber);color:var(--amber)}
+.menu-btn{display:none;width:44px;height:44px;background:none;border:0;cursor:pointer;align-items:center;justify-content:center}
+.mnav{display:none}
+
+/* hero */
+.hero{position:relative;z-index:2;min-height:max(100svh,780px);display:flex;align-items:center}
+.hero .in{padding-top:170px;padding-bottom:110px}
+.hero h1{font-size:clamp(38px,5.4vw,72px);line-height:1.02;letter-spacing:-.035em;max-width:11.5em;margin-top:22px}
+.hero .lede{margin-top:26px;font-size:clamp(16px,1.4vw,18px);line-height:1.6;color:var(--body);max-width:30em}
+.search{margin-top:44px;max-width:780px;background:rgba(16,18,23,.9);border:1px solid var(--line-strong);border-radius:4px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.field{flex:1 1 170px;min-width:0;padding:10px 16px;border-right:1px solid var(--line)}
+.field:nth-of-type(3){border-right:0}
+.field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.field input,.field select{margin-top:5px;width:100%;background:transparent;border:0;outline:0;padding:0;min-height:26px;font-size:15px;color:var(--text);appearance:none;-webkit-appearance:none;border-radius:0}
+.field select option{background:#101217;color:#e9e8e4}
+.field:focus-within label{color:var(--amber)}
+.btn-primary{min-height:56px;padding:0 28px;background:var(--amber);color:var(--ink);border:0;border-radius:2px;font-weight:600;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:filter .2s,transform .2s}
+.btn-primary:hover{filter:brightness(1.08)}
+.hero .alt{margin-top:20px;font-size:14px;color:var(--muted)}
+.hero .alt a{color:var(--text);border-bottom:1px solid var(--line-strong)}
+.hero .alt a:hover{color:var(--amber);border-color:var(--amber)}
+.stage-gap{display:none}
+.cue{position:absolute;left:0;right:0;bottom:26px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--muted)}
+.cue .in{display:flex;align-items:center;gap:14px;padding-top:0;padding-bottom:0}
+.cue i{display:block;width:1px;height:34px;background:var(--line-strong);position:relative;overflow:hidden}
+.cue i::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--amber);animation:cue 2.2s ease-in-out infinite}
+@keyframes cue{to{top:110%}}
+
+/* journey */
+.journey{position:relative;z-index:2;height:520vh}
+.stick{position:sticky;top:0;height:100svh;display:flex;align-items:center}
+.stick .in{display:flex;flex-direction:column;justify-content:center;height:100%;padding-top:128px;padding-bottom:64px}
+.jpanel{max-width:440px}
+.jpanel h2{font-size:clamp(26px,2.6vw,34px);line-height:1.1;letter-spacing:-.03em;margin-top:14px}
+.clist{list-style:none;margin:22px 0 0;padding:0;border-bottom:1px solid var(--line)}
+.clist li{display:flex;gap:18px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line);opacity:.42;transition:opacity .5s}
+.clist li .n{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;color:var(--muted);transition:color .5s}
+.clist li .t{font-size:22px;letter-spacing:-.02em;font-weight:500;transition:font-size .5s}
+.clist li.on{opacity:1}
+.clist li.on .n{color:var(--amber)}
+.clist li.on .t{font-size:32px}
+.cbody{display:grid;margin-top:20px}
+.chapter{grid-area:1/1;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .5s,transform .5s}
+.chapter.on{opacity:1;transform:none;pointer-events:auto}
+.chapter p{font-size:16px;line-height:1.6;color:var(--body)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{font-family:var(--mono);font-size:12px;letter-spacing:.05em;border:1px solid var(--line-strong);padding:8px 12px;background:transparent;cursor:pointer;min-height:36px;transition:border-color .2s,color .2s}
+.chip:hover{border-color:var(--amber);color:var(--amber)}
+.stats{margin-top:22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);background:rgba(10,11,14,.55)}
+.stats div{padding:13px 15px;border-right:1px solid var(--line)}
+.stats div:last-child{border-right:0}
+.stats dt{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted)}
+.stats dd{margin:6px 0 0;font-family:var(--mono);font-size:17px}
+.stats-note{margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted)}
+.tlink{margin-top:18px;display:inline-flex;align-items:center;min-height:44px;font-size:15px;font-weight:500;border:0;border-bottom:1px solid var(--line-strong);background:none;cursor:pointer;padding:0;transition:color .2s,border-color .2s}
+.tlink:hover{color:var(--amber);border-color:var(--amber)}
+.cam{position:absolute;left:0;right:0;bottom:max(24px,env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--muted)}
+.cam .in{display:flex;flex-direction:row;justify-content:flex-end;gap:18px;align-items:center;height:auto;padding-top:0;padding-bottom:0}
+.ticks{display:flex;gap:6px}
+.ticks i{display:block;width:34px;height:2px;background:var(--line-strong);transition:background .4s}
+.ticks i.on{background:var(--amber)}
+
+/* light sections */
+.sec{position:relative;z-index:3}
+.light{background:var(--bone);color:var(--on-bone)}
+.light-2{background:var(--bone-2);color:var(--on-bone)}
+.sec .in{padding-top:clamp(72px,9vw,112px);padding-bottom:clamp(72px,9vw,120px)}
+.light .eyebrow,.light-2 .eyebrow{color:var(--amber-on-bone)}
+.sec h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.03em;margin-top:18px;max-width:15em}
+.steps{margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));border-top:1px solid rgba(16,17,20,.22)}
+.step{padding:30px 28px 34px 0;margin-right:28px;border-right:1px solid rgba(16,17,20,.12)}
+.step:last-child{border-right:0;margin-right:0}
+.step .k{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--on-bone-faint)}
+.step .k i{display:block;width:28px;height:1px;background:rgba(16,17,20,.5)}
+.step h3{margin-top:34px;font-size:24px;letter-spacing:-.02em}
+.step p{margin-top:12px;font-size:15px;line-height:1.6;color:var(--on-bone-muted)}
+
+.ohead{display:flex;flex-wrap:wrap;gap:24px 48px;align-items:flex-end;justify-content:space-between}
+.btn-dark{display:inline-flex;align-items:center;min-height:48px;padding:0 24px;background:var(--on-bone);color:var(--bone);font-size:15px;font-weight:500;border-radius:2px;border:0;cursor:pointer;transition:background .2s}
+.btn-dark:hover{background:#2a2c31}
+.filters{margin-top:44px;display:grid;gap:14px}
+.frow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frow .lab{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--on-bone-faint);width:72px;flex:none}
+.fchip{font-family:var(--mono);font-size:12px;letter-spacing:.05em;border:1px solid rgba(16,17,20,.35);padding:8px 12px;background:transparent;color:var(--on-bone);cursor:pointer;min-height:38px;transition:background .15s,color .15s}
+.fchip:hover{background:rgba(16,17,20,.08)}
+.fchip[aria-pressed="true"]{background:var(--on-bone);color:var(--bone);border-color:var(--on-bone)}
+.fsel,.fq{border:1px solid rgba(16,17,20,.35);background:transparent;color:var(--on-bone);min-height:38px;padding:0 12px;font-size:14px;border-radius:0}
+.fq{flex:1 1 220px;min-width:0;max-width:340px}
+.fq::placeholder{color:var(--on-bone-faint)}
+.reset{background:none;border:0;border-bottom:1px solid rgba(16,17,20,.4);color:var(--on-bone);font-size:13px;cursor:pointer;min-height:38px;padding:0}
+.reset:hover{color:var(--amber-on-bone)}
+.tablewrap{margin-top:30px}
+.row{display:grid;grid-template-columns:150px minmax(0,1fr) 120px 96px 140px 104px;gap:16px;align-items:center;padding:21px 0;border-bottom:1px solid rgba(16,17,20,.14);transition:background .15s}
+.row:not(.head):hover{background:rgba(16,17,20,.04)}
+.row.head{padding:13px 0;border-top:1px solid rgba(16,17,20,.4);border-bottom:1px solid rgba(16,17,20,.2);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--on-bone-faint)}
+.row .type{font-family:var(--mono);font-size:11px;letter-spacing:.06em;border:1px solid rgba(16,17,20,.35);padding:5px 8px;justify-self:start;text-transform:uppercase}
+.row .ttl{font-size:17px;font-weight:500;letter-spacing:-.01em;line-height:1.3}
+.row .ttl small{display:block;margin-top:4px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--on-bone-faint);font-weight:400;text-transform:uppercase}
+.row .c,.row .s{font-size:14px;color:#3d3f45}
+.row .z{font-family:var(--mono);font-size:13px}
+.row .v{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--amber-on-bone);display:flex;align-items:center;gap:6px}
+.empty{padding:40px 0;color:var(--on-bone-muted);border-bottom:1px solid rgba(16,17,20,.14)}
+.note{margin-top:18px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--on-bone-faint);display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between}
+
+/* trust */
+.dark{background:var(--ink);position:relative;overflow:hidden}
+.dark .eyebrow{color:var(--amber)}
+.trust{display:flex;flex-wrap:wrap;gap:56px 96px;justify-content:space-between}
+.trust .lead{flex:1 1 340px;max-width:440px}
+.trust .lead p{margin-top:22px;font-size:17px;line-height:1.6;color:var(--body)}
+.trust ul{list-style:none;margin:0;padding:0;flex:1 1 460px;max-width:660px;border-bottom:1px solid var(--line)}
+.trust li{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:12px 28px;padding:26px 0;border-top:1px solid var(--line)}
+.trust .tg{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--amber);padding-top:5px}
+.trust h3{font-size:20px;letter-spacing:-.015em}
+.trust li p{margin-top:8px;font-size:15px;line-height:1.6;color:var(--body)}
+
+.aud{margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));border-top:1px solid rgba(16,17,20,.22)}
+.aud div.a{padding:28px 32px 32px 0;border-bottom:1px solid rgba(16,17,20,.14)}
+.aud h3{font-size:22px;letter-spacing:-.02em}
+.aud dl{margin:16px 0 0;display:grid;grid-template-columns:60px minmax(0,1fr);gap:8px 12px;font-size:14px;line-height:1.5}
+.aud dt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--on-bone-faint);padding-top:2px}
+.aud dd{margin:0;color:#2c2e33}
+
+.cta{background:transparent;position:relative;overflow:hidden;min-height:78svh;display:flex;align-items:center}
+.no3d .cta{background:var(--ink)}
+.cta .in{position:relative}
+.cta h2{font-size:clamp(34px,4.6vw,58px);line-height:1.04;max-width:12em}
+.cta p{margin-top:22px;font-size:17px;line-height:1.6;color:var(--body);max-width:30em}
+.cta .acts{margin-top:34px;display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center}
+footer.ft{background:var(--ink);border-top:1px solid var(--line);position:relative;z-index:3}
+footer .in{padding-top:60px;padding-bottom:max(36px,env(safe-area-inset-bottom,0px))}
+.fcols{display:flex;flex-wrap:wrap;gap:40px 90px;justify-content:space-between}
+.fcols p{margin-top:16px;max-width:320px;font-size:14px;line-height:1.6;color:var(--muted)}
+.fnav{display:flex;flex-wrap:wrap;gap:36px 76px;font-size:14px}
+.fnav div{display:flex;flex-direction:column}
+.fnav span{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+.fnav a{min-height:34px;display:flex;align-items:center}
+.fnav a:hover{color:var(--amber)}
+.credits{margin-top:48px;padding-top:22px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;letter-spacing:.04em;line-height:1.9;color:var(--muted)}
+.credits a{border-bottom:1px solid var(--line-strong)}
+.credits a:hover{color:var(--amber)}
+
+/* no webgl */
+.no3d #stage,.no3d #pins,.no3d #loading{display:none}
+.no3d .scrim{display:none}
+
+@media (max-width:900px){
+  .links,.nav-r .login,.nav-r .btn-ghost{display:none}
+  .menu-btn{display:inline-flex}
+  .mnav.open{display:flex;flex-direction:column;background:rgba(10,11,14,.97);border-top:1px solid var(--line);padding-top:8px;padding-bottom:16px}
+  .mnav a{min-height:48px;display:flex;align-items:center;border-bottom:1px solid var(--line);font-size:16px}
+  .scrim{background:linear-gradient(180deg,rgba(10,11,14,.82) 0%,rgba(10,11,14,.5) 40%,rgba(10,11,14,.1) 60%,rgba(10,11,14,.82) 100%)}
+  .hero{align-items:flex-start}
+  .hero .in{padding-top:150px;padding-bottom:40px}
+  .stage-gap{display:block;height:250px}
+  .search{margin-top:0}
+  .cue{display:none}
+  .ann a{display:none}
+  .field{flex-basis:100%;border-right:0;border-bottom:0}
+  .search .field:nth-of-type(2),.search .field:nth-of-type(3){display:none}
+  .btn-primary{width:100%}
+  .stick .in{justify-content:flex-end;padding-top:100px;padding-bottom:64px}
+  .jpanel{max-width:none;background:linear-gradient(180deg,rgba(10,11,14,0),rgba(10,11,14,.9) 22%);margin:0 calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:40px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+  .jpanel h2{display:none}
+  .clist{display:flex;margin-top:0;border-bottom:0}
+  .clist li{flex:1;display:block;padding:10px 0 0;opacity:.4}
+  .clist li .t,.clist li.on .t{font-size:15px;display:block;margin-top:4px}
+  .clist li.on{opacity:1}
+  .cbody{margin-top:14px}
+  .chapter p{font-size:15px}
+  .chips{margin-top:12px}
+  .stats{margin-top:14px}
+  .stats div{padding:10px 12px}
+  .stats dd{font-size:15px}
+  .cam{display:none}
+  .pin span{font-size:10px;padding:5px 8px}
+  .step{border-right:0;margin-right:0;border-bottom:1px solid rgba(16,17,20,.12);padding:24px 0 28px}
+  .step h3{margin-top:18px}
+  .frow .lab{width:100%}
+  .row.head{display:none}
+  .row{grid-template-columns:auto 1fr auto;grid-template-areas:"type type v" "ttl ttl ttl" "c z s";gap:12px 16px}
+  .row .type{grid-area:type}.row .ttl{grid-area:ttl}.row .c{grid-area:c}.row .z{grid-area:z}.row .s{grid-area:s}.row .v{grid-area:v}
+  .trust li{grid-template-columns:1fr}
+}
+@media (max-height:860px) and (min-width:901px){.jpanel h2{display:none}.clist{margin-top:18px}}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms !important;animation:none !important}
+}
+
+/* ===== v2: editorial type, soft shapes, layered sheets ===== */
+h1,h2,h3{font-family:var(--serif);font-weight:400}
+.logo{font-family:var(--serif);font-weight:400;font-size:23px;letter-spacing:0}
+.hero .eyebrow{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;padding:7px 15px;background:rgba(16,17,20,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-size:11px}
+.hero h1{font-size:clamp(44px,5.5vw,80px);line-height:.98;letter-spacing:-.025em;max-width:10.6em;margin-top:26px}
+.hero .lede{font-size:clamp(16px,1.4vw,19px)}
+.jpanel h2{font-size:clamp(30px,3vw,40px);line-height:1.04;letter-spacing:-.01em}
+.clist li .t{font-family:var(--serif);font-size:27px;font-weight:400;letter-spacing:0}
+.clist li.on .t{font-size:42px}
+.sec h2{font-size:clamp(38px,4.8vw,66px);line-height:1;letter-spacing:-.022em;max-width:13em}
+.cta h2{font-size:clamp(44px,6vw,82px);line-height:.98;max-width:11em}
+
+/* pills and softer shapes */
+.btn-ghost{border-radius:999px;padding:0 22px}
+.btn-primary{border-radius:999px;padding:0 10px 0 28px;gap:16px}
+.btn-primary::after{content:"→";width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--amber);display:inline-grid;place-items:center;font-size:17px;flex:none;transition:transform .25s}
+.btn-primary:hover::after{transform:translateX(3px)}
+.btn-dark{border-radius:999px;padding:0 8px 0 26px;gap:14px;min-height:52px}
+.btn-dark::after{content:"→";width:36px;height:36px;border-radius:50%;background:var(--bone);color:var(--on-bone);display:inline-grid;place-items:center;font-size:16px}
+.search{border-radius:30px;padding:8px 8px 8px 12px;border-color:rgba(255,255,255,.22)}
+.search .btn-primary{min-height:58px;flex:0 0 auto}
+.search .field{flex:1 1 130px}
+.field label{font-family:var(--sans);font-size:12px;letter-spacing:.02em;text-transform:none;font-weight:500}
+.chip,.fchip{font-family:var(--sans);font-size:14px;letter-spacing:0;border-radius:999px;padding:8px 18px;min-height:40px}
+.fchip{border-color:rgba(16,17,20,.22);background:rgba(255,255,255,.5)}
+.fchip:hover{background:#fff}
+.fchip[aria-pressed="true"]{background:var(--on-bone);color:var(--bone)}
+.fsel,.fq{border-radius:999px;padding:0 18px;border-color:rgba(16,17,20,.22);background:rgba(255,255,255,.5);min-height:40px}
+.frow .lab{font-family:var(--sans);font-size:13px;letter-spacing:0;font-weight:500}
+.stats{border-radius:18px;overflow:hidden}
+.stats dt{font-family:var(--sans);font-size:12px;letter-spacing:.02em}
+.stats dd{font-family:var(--serif);font-size:25px}
+.pin span{border-radius:12px}
+.tlink{font-weight:500}
+
+/* layered sheets */
+.sec.light,.sec.dark{border-radius:36px 36px 0 0;margin-top:-36px}
+.sec.dark{background:var(--ink);box-shadow:0 -1px 0 rgba(255,255,255,.07)}
+.sec.dark::before{content:"";position:absolute;right:-10%;top:-20%;width:60%;height:90%;background:radial-gradient(closest-side,rgba(240,179,74,.13),rgba(240,179,74,0));pointer-events:none}
+.sec.dark .in{position:relative}
+.sec.light{box-shadow:0 -10px 40px rgba(0,0,0,.18)}
+.sec.light-2{background:#e8e5de;box-shadow:none}
+.sec.light .in{padding-top:clamp(84px,9vw,120px)}
+
+/* how it works: four soft cards */
+.steps{border-top:0;gap:16px;margin-top:60px}
+.step{margin:0;padding:28px 26px 32px;background:#f8f6f2;border:1px solid rgba(16,17,20,.07);border-radius:28px;transition:transform .3s,box-shadow .3s}
+.step:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(16,17,20,.08)}
+.step:last-child{margin-right:0;border-right:1px solid rgba(16,17,20,.07)}
+.step .k{display:block}
+.step .k i{display:none}
+.step .k span{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--amber-on-bone);display:inline-block;padding-bottom:14px;border-bottom:1px solid rgba(122,79,0,.45);width:44px}
+.step h3{margin-top:44px;font-size:32px;letter-spacing:-.01em}
+
+/* opportunities */
+.tablewrap{margin-top:34px;background:#f8f6f2;border:1px solid rgba(16,17,20,.07);border-radius:30px;padding:10px 30px 8px;box-shadow:0 24px 60px rgba(16,17,20,.06)}
+.row.head{border-top:0;border-bottom:1px solid rgba(16,17,20,.12);padding:18px 0 14px;font-family:var(--sans);font-size:12px;letter-spacing:.04em;font-weight:500}
+.row{padding:20px 0}
+.row:last-child{border-bottom:0}
+.row:not(.head):hover{background:transparent}
+.row .type{border:0;border-radius:999px;padding:6px 13px;background:rgba(16,17,20,.07);font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none}
+.row[data-type="Investment"] .type{background:#f3e3bd;color:#5a3b00}
+.row[data-type="EPC"] .type{background:#d9e4ee;color:#1c3550}
+.row[data-type="Tender"] .type{background:#efd8d2;color:#6a2a1c}
+.row[data-type="Asset sale"] .type{background:#d6e8d9;color:#1f4a2a}
+.row[data-type="Mandate"] .type{background:#e2dcef;color:#3b2c63}
+.row .ttl .t{font-family:var(--serif);font-size:25px;font-weight:400;letter-spacing:0;line-height:1.15;display:block}
+.row .ttl small{margin-top:6px}
+.row .z{font-family:var(--serif);font-size:22px}
+.row .v{font-family:var(--sans);font-size:12px;letter-spacing:0;font-weight:500;background:rgba(122,79,0,.1);border-radius:999px;padding:5px 11px;justify-self:start}
+.note{font-family:var(--sans);font-size:12.5px;letter-spacing:0}
+.empty{border-bottom:0}
+
+/* trust cards */
+.trust ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;border-bottom:0;max-width:780px}
+.trust li{display:block;padding:28px 26px 30px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012))}
+.trust .tg{display:inline-block;padding:5px 11px;border:1px solid rgba(240,179,74,.35);border-radius:999px;margin-bottom:22px;font-size:10.5px}
+.trust h3{font-size:28px;line-height:1.1;letter-spacing:-.005em}
+.trust .lead p{font-size:18px}
+
+/* audience cards */
+.aud{border-top:0;gap:16px;margin-top:60px}
+.aud div.a{padding:30px 28px 32px;background:#f8f6f2;border:1px solid rgba(16,17,20,.07);border-radius:28px}
+.aud h3{font-size:30px;line-height:1.05;letter-spacing:-.01em}
+.aud dl{margin-top:22px;grid-template-columns:62px minmax(0,1fr);gap:12px 12px;align-items:start}
+.aud dt{font-family:var(--sans);font-weight:600;font-size:11px;letter-spacing:.06em;color:var(--amber-on-bone);padding-top:3px}
+.aud dd{font-size:15px;line-height:1.5}
+
+footer.ft{border-radius:36px 36px 0 0;margin-top:-36px;border-top:1px solid rgba(255,255,255,.1)}
+.fnav span{font-family:var(--sans);font-weight:500;letter-spacing:.04em;font-size:12px}
+
+@media (max-width:900px){
+  .hero h1{font-size:clamp(42px,12vw,60px)}
+  .sec.light,.sec.dark,footer.ft{border-radius:26px 26px 0 0;margin-top:-26px}
+  .step{border-bottom:1px solid rgba(16,17,20,.07);padding:24px 22px 28px}
+  .tablewrap{padding:6px 18px 4px;border-radius:24px}
+  .trust ul{grid-template-columns:1fr}
+  .trust li{grid-template-columns:none}
+  .clist li .t,.clist li.on .t{font-size:18px}
+  .btn-primary{justify-content:space-between}
+  .row .ttl .t{font-size:22px}
+}
+</style>
+
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<div class="scrim"></div>
+<div id="pins" aria-hidden="true"></div>
+<div id="loading" role="status"><span id="loadtxt">LOADING 3D SCENE</span><u></u></div>
+
+<header class="top" id="top">
+  <div class="in">
+    <div class="nav">
+      <a class="logo" href="#hero" aria-label="EIP Africa home">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f0b34a" stroke-width="1.5" aria-hidden="true"><rect x="2.75" y="2.75" width="18.5" height="18.5"/><path d="M2.75 21.25 21.25 2.75"/><path d="M12 12v9.25"/></svg>
+        <span>EIP Africa</span>
+      </a>
+      <nav class="links" aria-label="Primary">
+        <a href="#journey">Sectors</a><a href="#opportunities">Opportunities</a><a href="#how">How it works</a><a href="#trust">Trust</a>
+      </nav>
+      <div class="nav-r">
+        <a class="login" href="#top" data-stub>Log in</a>
+        <a class="btn-ghost" href="#start">Post an opportunity</a>
+        <button class="menu-btn" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="mnav">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 7h16M3 15h16"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav class="mnav" id="mnav" aria-label="Mobile"><a href="#journey">Sectors</a><a href="#opportunities">Opportunities</a><a href="#how">How it works</a><a href="#trust">Trust</a><a href="#start">Post an opportunity</a></nav>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="hero">
+  <div class="in">
+    <div class="eyebrow">ENERGY AND INFRASTRUCTURE · AFRICA</div>
+    <h1>Every energy and infrastructure deal in Africa, in one place.</h1>
+    <p class="lede">List a project, asset or need in minutes. Find the people who can fund, build, supply or buy it. Then take the deal forward through the platform.</p>
+    <div class="stage-gap" aria-hidden="true"></div>
+    <form class="search" id="heroForm" autocomplete="off">
+      <div class="field"><label for="hSector">Sector</label>
+        <select id="hSector"><option value="All">Any sector</option><option>Power</option><option>Water</option><option>Grid</option><option>Renewables</option></select></div>
+      <div class="field"><label for="hCountry">Country or region</label>
+        <input id="hCountry" type="text" placeholder="Nigeria, East Africa…"></div>
+      <div class="field"><label for="hSize">Deal size (USD)</label>
+        <select id="hSize"><option value="any">Any size</option><option value="s">Under $10M</option><option value="m">$10M to $50M</option><option value="l">Over $50M</option></select></div>
+      <button class="btn-primary" type="submit">Search opportunities</button>
+    </form>
+    <p class="alt">Or <a href="#start">post an opportunity</a>. Browsing needs no account; full details do.</p>
+  </div>
+  <div class="cue"><div class="in"><i></i><span>SCROLL TO TRAVEL THE GRID</span></div></div>
+</section>
+
+<section class="journey" id="journey" aria-label="Sectors">
+  <div class="stick">
+    <div class="in">
+      <div class="jpanel">
+        <div class="eyebrow">THE PLATFORM, BY SECTOR</div>
+        <h2>Start from the infrastructure, then find the deal.</h2>
+        <ol class="clist" id="clist" aria-label="Sector chapters">
+          <li class="on"><span class="n">01</span><span class="t">Power</span></li>
+          <li><span class="n">02</span><span class="t">Water</span></li>
+          <li><span class="n">03</span><span class="t">Grid</span></li>
+          <li><span class="n">04</span><span class="t">Renewables</span></li>
+        </ol>
+        <div class="cbody" id="cbody"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="sec light" id="how">
+  <div class="in">
+    <div class="eyebrow">HOW IT WORKS</div>
+    <h2>From listing to conversation in four steps.</h2>
+    <div class="steps">
+      <div class="step"><div class="k"><span>01</span><i></i></div><h3>List</h3><p>Use the guided form. Only a few fields are required, and a completeness score shows what would strengthen the listing.</p></div>
+      <div class="step"><div class="k"><span>02</span><i></i></div><h3>Review</h3><p>Our team checks every listing and organisation before it goes live. Verified organisations carry a badge.</p></div>
+      <div class="step"><div class="k"><span>03</span><i></i></div><h3>Match</h3><p>Filter by country, sector, size and stage, or save a search and get an email when a new listing fits.</p></div>
+      <div class="step"><div class="k"><span>04</span><i></i></div><h3>Connect</h3><p>Express interest, ask a question or request documents. Replies stay in one message history.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec light-2" id="opportunities">
+  <div class="in">
+    <div class="ohead">
+      <div>
+        <div class="eyebrow">OPPORTUNITIES</div>
+        <h2>One standard format, so deals can be compared.</h2>
+      </div>
+      <a class="btn-dark" href="#opportunities" id="browseAll">Browse all opportunities</a>
+    </div>
+    <div class="filters" role="group" aria-label="Filter opportunities">
+      <div class="frow" id="fType"><span class="lab">TYPE</span></div>
+      <div class="frow" id="fSector"><span class="lab">SECTOR</span></div>
+      <div class="frow">
+        <span class="lab">SIZE</span>
+        <select class="fsel" id="fSize" aria-label="Deal size"><option value="any">Any size</option><option value="s">Under $10M</option><option value="m">$10M to $50M</option><option value="l">Over $50M</option></select>
+        <label class="lab" for="fQ" style="width:auto;margin-left:12px">SEARCH</label>
+        <input class="fq" id="fQ" type="search" placeholder="Title, country or region">
+        <button class="reset" id="reset" type="button">Reset filters</button>
+      </div>
+    </div>
+    <div class="tablewrap" role="table" aria-label="Sample opportunities">
+      <div class="row head" role="row"><span>TYPE</span><span>LISTING</span><span>COUNTRY</span><span>SIZE</span><span>STAGE</span><span>STATUS</span></div>
+      <div id="rows"></div>
+    </div>
+    <div class="note"><span id="count"></span><span>SAMPLE DATA · LIVE LISTINGS APPEAR HERE ONCE REVIEWED</span></div>
+  </div>
+</section>
+
+<section class="sec dark" id="trust">
+  <div class="in">
+    <div class="trust">
+      <div class="lead">
+        <div class="eyebrow">TRUST</div>
+        <h2>Credible by design, not by claim.</h2>
+        <p>Large deals depend on who is on the other side. These are the checks the platform is built around.</p>
+      </div>
+      <ul>
+        <li><span class="tg">EVERY LISTING</span><div><h3>Reviewed before it goes live</h3><p>A listing becomes visible only once our team approves it. The owner can pause or close it at any time.</p></div></li>
+        <li><span class="tg">EVERY ORGANISATION</span><div><h3>Verified, with a visible badge</h3><p>Organisations submit registration details and, optionally, past project references. Approved ones are marked Verified.</p></div></li>
+        <li><span class="tg">CONFIDENTIAL FILES</span><div><h3>Released only on the owner’s approval</h3><p>Teasers can be public. Financial models and permits are requested, and the owner decides who sees them.</p></div></li>
+        <li><span class="tg">EVERY DOWNLOAD</span><div><h3>Logged, so owners can see who has what</h3><p>Who downloaded a document and when is recorded and shown to the listing owner.</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec light">
+  <div class="in">
+    <div class="eyebrow">WHO IT IS FOR</div>
+    <h2>Both sides of the deal, on one platform.</h2>
+    <div class="aud">
+      <div class="a"><h3>Project developers and owners</h3><dl><dt>POSTS</dt><dd>Projects needing funding, an EPC, equipment or a buyer</dd><dt>FINDS</dt><dd>Investors, EPCs, suppliers</dd></dl></div>
+      <div class="a"><h3>Investors</h3><dl><dt>POSTS</dt><dd>Investment criteria: ticket size, sectors, countries</dd><dt>FINDS</dt><dd>Projects and assets to fund or acquire</dd></dl></div>
+      <div class="a"><h3>EPC contractors</h3><dl><dt>POSTS</dt><dd>Company profile, capabilities, track record</dd><dt>FINDS</dt><dd>Projects needing an EPC</dd></dl></div>
+      <div class="a"><h3>Suppliers and sellers</h3><dl><dt>POSTS</dt><dd>Products, equipment, services</dd><dt>FINDS</dt><dd>Projects and tenders to bid on</dd></dl></div>
+      <div class="a"><h3>Asset sellers</h3><dl><dt>POSTS</dt><dd>Operating assets or stakes for sale</dd><dt>FINDS</dt><dd>Buyers and investors</dd></dl></div>
+      <div class="a"><h3>Advisors and public agencies</h3><dl><dt>POSTS</dt><dd>Services offered, tenders, PPP opportunities</dd><dt>FINDS</dt><dd>Bidders, investors, projects needing support</dd></dl></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec cta" id="start">
+  <div class="in">
+    <div class="eyebrow">GET STARTED</div>
+    <h2>List your first opportunity in a few minutes.</h2>
+    <p>Only a few fields are required. Save a draft at any step and come back to it. Our team reviews it before it goes live.</p>
+    <div class="acts">
+      <a class="btn-primary" href="#start">Post an opportunity</a>
+      <a class="tlink" href="#opportunities" style="margin-top:0">Or browse opportunities →</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="ft">
+  <div class="in">
+    <div class="fcols">
+      <div>
+        <div class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f0b34a" stroke-width="1.5" aria-hidden="true"><rect x="2.75" y="2.75" width="18.5" height="18.5"/><path d="M2.75 21.25 21.25 2.75"/><path d="M12 12v9.25"/></svg><span>EIP Africa</span></div>
+        <p>An online marketplace for energy and infrastructure opportunities in Africa.</p>
+      </div>
+      <div class="fnav">
+        <div><span>PLATFORM</span><a href="#opportunities">Opportunities</a><a href="#start">Post an opportunity</a><a href="#how">How it works</a></div>
+        <div><span>COMPANY</span><a href="#start">About</a><a href="#start">FAQ</a><a href="#start">Contact</a></div>
+        <div><span>LEGAL</span><a href="#start">Terms</a><a href="#start">Privacy</a></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobile = () => innerWidth <= 900;
+const scrollOpts = () => ({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+
+/* ---------- sample data (clearly labelled as sample in the UI) ---------- */
+const LISTINGS = [
+  { type:'Investment', title:'50 MW solar PV in Kano', country:'Nigeria', region:'West Africa', min:40, max:40, stage:'Development', sector:'Renewables', verified:true },
+  { type:'EPC', title:'Mini-grid portfolio needs an EPC contractor', country:'Kenya', region:'East Africa', min:18, max:18, stage:'Feasibility', sector:'Renewables', verified:true },
+  { type:'Tender', title:'Utility seeks bids for 200 transformers', country:'Ghana', region:'West Africa', min:6, max:6, stage:'Closes in 21 days', sector:'Grid', verified:true },
+  { type:'Asset sale', title:'70% stake in an operating hydro plant', country:'Uganda', region:'East Africa', min:85, max:85, stage:'Operational', sector:'Water', verified:true },
+  { type:'Mandate', title:'Fund deploying $5–20M in East African renewables', country:'East Africa', region:'East Africa', min:5, max:20, stage:'Open', sector:'Renewables', verified:true },
+  { type:'Investment', title:'132 kV transmission line, 90 km', country:'Zambia', region:'Southern Africa', min:120, max:120, stage:'Financial close', sector:'Grid', verified:true },
+  { type:'EPC', title:'Gas-fired plant needs an EPC contractor', country:'Nigeria', region:'West Africa', min:75, max:75, stage:'Development', sector:'Power', verified:true },
+  { type:'Tender', title:'Water treatment and storage works', country:'Rwanda', region:'East Africa', min:12, max:12, stage:'Closes in 30 days', sector:'Water', verified:true },
+  { type:'Investment', title:'120 MW wind farm, phase one', country:'Kenya', region:'East Africa', min:160, max:160, stage:'Construction', sector:'Renewables', verified:true },
+  { type:'Asset sale', title:'49% of an operating thermal plant', country:'Nigeria', region:'West Africa', min:60, max:60, stage:'Operational', sector:'Power', verified:true },
+  { type:'EPC', title:'Substation upgrade and new feeders', country:'Tanzania', region:'East Africa', min:22, max:22, stage:'Development', sector:'Grid', verified:true },
+  { type:'Tender', title:'Dam rehabilitation and spillway repairs', country:'Mozambique', region:'Southern Africa', min:30, max:30, stage:'Closes in 45 days', sector:'Water', verified:true }
+];
+const fmt = (l) => l.min === l.max ? '$' + l.min + 'M' : '$' + l.min + '–' + l.max + 'M';
+
+/* ---------- chapters ---------- */
+const CHAPTERS = [
+  { name:'Power', sector:'Power', text:'Thermal and gas-fired plants: projects looking for finance, plants for sale and equipment tenders.', chips:['Gas','Thermal','Captive power'] },
+  { name:'Water', sector:'Water', text:'Hydropower and water infrastructure: dams, treatment works and storage, from stakes for sale to rehabilitation tenders.', chips:['Hydro','Dams','Treatment','Storage'] },
+  { name:'Grid', sector:'Grid', text:'Transmission lines, substations and transformers, from financing to procurement.', chips:['Transmission','Substations','Distribution'] },
+  { name:'Renewables', sector:'Renewables', text:'Solar and wind projects, mini-grids and the investors looking for them.', chips:['Solar','Wind','Mini-grids','Storage'] }
+];
+const filter = { type:'All', sector:'All', size:'any', q:'' };
+
+function sectorStats(sector) {
+  const ls = LISTINGS.filter(l => l.sector === sector);
+  const lo = Math.min(...ls.map(l => l.min)), hi = Math.max(...ls.map(l => l.max));
+  return { n: ls.length, range: '$' + lo + '–' + hi + 'M', countries: new Set(ls.map(l => l.country)).size };
+}
+const cbody = $('#cbody');
+CHAPTERS.forEach((c, i) => {
+  const s = sectorStats(c.sector);
+  const art = document.createElement('article');
+  art.className = 'chapter' + (i === 0 ? ' on' : '');
+  art.setAttribute('aria-label', c.name);
+  art.innerHTML = `<p></p><div class="chips"></div>
+    <dl class="stats"><div><dt>LISTINGS</dt><dd>${s.n}</dd></div><div><dt>DEAL SIZE</dt><dd>${s.range}</dd></div><div><dt>COUNTRIES</dt><dd>${s.countries}</dd></div></dl>
+    <div class="stats-note">SAMPLE DATA</div>
+    <button class="tlink" type="button">View ${c.name.toLowerCase()} opportunities →</button>`;
+  $('p', art).textContent = c.text;
+  const chips = $('.chips', art);
+  c.chips.forEach(t => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.addEventListener('click', () => goSector(c.sector)); chips.appendChild(b); });
+  $('.tlink', art).addEventListener('click', () => goSector(c.sector));
+  cbody.appendChild(art);
+});
+
+/* ---------- opportunities list ---------- */
+const TYPES = ['All','Investment','EPC','Tender','Asset sale','Mandate'];
+const SECTORS = ['All','Power','Water','Grid','Renewables'];
+function chipRow(host, items, key) {
+  items.forEach(v => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'fchip'; b.textContent = v; b.dataset.v = v;
+    b.addEventListener('click', () => { filter[key] = v; renderList(); });
+    host.appendChild(b);
+  });
+}
+chipRow($('#fType'), TYPES, 'type'); chipRow($('#fSector'), SECTORS, 'sector');
+$('#fSize').addEventListener('change', e => { filter.size = e.target.value; renderList(); });
+$('#fQ').addEventListener('input', e => { filter.q = e.target.value; renderList(); });
+$('#reset').addEventListener('click', () => { Object.assign(filter, { type:'All', sector:'All', size:'any', q:'' }); renderList(); });
+$('#browseAll').addEventListener('click', e => { e.preventDefault(); Object.assign(filter, { type:'All', sector:'All', size:'any', q:'' }); renderList(); });
+
+function sizeOk(l, s) { return s === 'any' || (s === 's' && l.max < 10) || (s === 'm' && l.max >= 10 && l.min <= 50) || (s === 'l' && l.max > 50); }
+function renderList() {
+  $$('#fType .fchip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === filter.type)));
+  $$('#fSector .fchip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === filter.sector)));
+  $('#fSize').value = filter.size; if ($('#fQ').value !== filter.q) $('#fQ').value = filter.q;
+  const q = filter.q.trim().toLowerCase();
+  const out = LISTINGS.filter(l =>
+    (filter.type === 'All' || l.type === filter.type) &&
+    (filter.sector === 'All' || l.sector === filter.sector) &&
+    sizeOk(l, filter.size) &&
+    (!q || (l.title + ' ' + l.country + ' ' + l.region + ' ' + l.sector).toLowerCase().includes(q)));
+  const rows = $('#rows'); rows.textContent = '';
+  out.forEach(l => {
+    const r = document.createElement('div'); r.className = 'row'; r.dataset.type = l.type; r.setAttribute('role', 'row');
+    r.innerHTML = '<span class="type"></span><span class="ttl"><span class="t"></span><small></small></span><span class="c"></span><span class="z"></span><span class="s"></span><span class="v"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 6.5 4.8 9 10 3"/></svg>VERIFIED</span>';
+    $('.type', r).textContent = l.type; $('.t', r).textContent = l.title; $('small', r).textContent = l.sector;
+    $('.c', r).textContent = l.country; $('.z', r).textContent = fmt(l); $('.s', r).textContent = l.stage;
+    rows.appendChild(r);
+  });
+  if (!out.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No sample listings match these filters. Try resetting them.'; rows.appendChild(e); }
+  $('#count').textContent = 'SHOWING ' + out.length + ' OF ' + LISTINGS.length + ' SAMPLE LISTINGS';
+}
+renderList();
+function goOpps() { $('#opportunities').scrollIntoView(scrollOpts()); }
+function goSector(s) { Object.assign(filter, { type:'All', sector:s, size:'any', q:'' }); renderList(); goOpps(); }
+
+$('#heroForm').addEventListener('submit', e => {
+  e.preventDefault();
+  Object.assign(filter, { type:'All', sector:$('#hSector').value, size:$('#hSize').value, q:$('#hCountry').value.trim() });
+  renderList(); goOpps();
+});
+
+/* ---------- header ---------- */
+const header = $('#top'), menubtn = $('#menubtn'), mnav = $('#mnav');
+menubtn.addEventListener('click', () => { const o = mnav.classList.toggle('open'); menubtn.setAttribute('aria-expanded', String(o)); });
+$$('#mnav a').forEach(a => a.addEventListener('click', () => { mnav.classList.remove('open'); menubtn.setAttribute('aria-expanded', 'false'); }));
+$$('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
+  const id = a.getAttribute('href').slice(1); const t = id && document.getElementById(id);
+  if (t && id !== 'opportunities') { e.preventDefault(); t.scrollIntoView(scrollOpts()); }
+}));
+
+/* ---------- 3D stage ---------- */
+const canvas = $('#stage');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) { document.documentElement.classList.add('no3d'); }
+
+if (renderer) {
+  const BG = 0x0a0b0e;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(BG);
+  scene.fog = new THREE.FogExp2(BG, 0.0062);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.22;
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 600);
+
+  scene.add(new THREE.HemisphereLight(0xcfd8ff, 0x3a2e24, 1.35));
+  const key = new THREE.DirectionalLight(0xffd9a8, 2.6); key.position.set(40, 60, 30); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7fa0ff, 1.5); rim.position.set(-50, 25, -40); scene.add(rim);
+
+  // ground and grid
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ color: 0x0b0c10 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06; scene.add(ground);
+  const grid = new THREE.GridHelper(600, 120, 0x2f333d, 0x1b1e25); grid.position.y = -0.02; scene.add(grid);
+
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xf0b34a, transparent: true, opacity: 0.38, side: THREE.DoubleSide, fog: true });
+  function ring(x, z, r) {
+    const m = new THREE.Mesh(new THREE.RingGeometry(r, r + 0.09, 128), ringMat);
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z); scene.add(m); return m;
+  }
+
+  // layout (world units)
+  const L = {
+    plant: new THREE.Vector3(0, 0, 0),
+    dam: new THREE.Vector3(-64, 0, -12),
+    tower: new THREE.Vector3(-33, 0, -2),
+    pylonX: -126, pylonZ: [-32, -9, 14],
+    solar: new THREE.Vector3(36, 0, -16),
+    wind: [new THREE.Vector3(-226, 0, -40), new THREE.Vector3(-210, 0, -58)],
+    hills: new THREE.Vector3(74, -0.5, -104)
+  };
+
+  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+  const progress = {}; let ready = false;
+  function updProgress() {
+    const v = Object.values(progress); const p = v.reduce((a, b) => a + b, 0) / 4;
+    $('#loading').style.setProperty('--p', p.toFixed(3));
+    $('#loadtxt').textContent = 'LOADING 3D SCENE ' + Math.round(p * 100) + '%';
+  }
+  // Models are plain .glb files. Compressed (meshopt) set first; if WebAssembly is unavailable the
+  // loader falls back to the uncompressed set in models/plain/.
+  async function fetchModel(dir, name) {
+    const res = await fetch('models/' + dir + name + '.glb'); if (!res.ok) throw new Error('fetch ' + res.status);
+    const total = +res.headers.get('content-length') || 0; const parts = []; let got = 0;
+    const rd = res.body.getReader();
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; if (total) { progress[name] = 0.9 * got / total; updProgress(); } }
+    const buf = await new Blob(parts).arrayBuffer();
+    return new Promise((ok, no) => loader.parse(buf, '', g => ok(g.scene), no));
+  }
+  let compressed = true;
+  function loadModel(name) {
+    const done = sc => { progress[name] = 1; updProgress(); return sc; };
+    if (!compressed) return fetchModel('plain/', name).then(done);
+    return fetchModel('', name).then(done).catch(() => { compressed = false; progress[name] = 0; return fetchModel('plain/', name).then(done); });
+  }
+  // normalise: scale so the larger footprint (or height) matches, sit on y=0 at pos
+  function place(obj, pos, size, byHeight = false, rotY = 0) {
+    obj.rotation.y = rotY; obj.updateMatrixWorld(true);
+    let b = new THREE.Box3().setFromObject(obj), s = b.getSize(new THREE.Vector3());
+    const k = size / (byHeight ? s.y : Math.max(s.x, s.z)); obj.scale.setScalar(k); obj.updateMatrixWorld(true);
+    b = new THREE.Box3().setFromObject(obj); const c = b.getCenter(new THREE.Vector3());
+    obj.position.set(pos.x - c.x, pos.y - b.min.y, pos.z - c.z); obj.updateMatrixWorld(true);
+    scene.add(obj); return new THREE.Box3().setFromObject(obj);
+  }
+  function tame(obj) { obj.traverse(m => { if (m.isMesh && m.material) { m.frustumCulled = true; if (m.material.envMapIntensity !== undefined) m.material.envMapIntensity = 0.4; } }); }
+
+  // Scans are cut as rectangles. Fade each one into the ground along a circle so it reads as an island, and lift its brightness.
+  function softEdge(obj, box, start = 0.55, bright = 1.3, shrink = 0.97) {
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const R = 0.5 * Math.max(sz.x, sz.z) * shrink, seen = new Set();
+    obj.traverse(m => {
+      if (!m.isMesh || seen.has(m.material)) return; const mat = m.material; seen.add(mat);
+      if (mat.color) mat.color.multiplyScalar(bright);
+      mat.onBeforeCompile = sh => {
+        sh.uniforms.uC = { value: new THREE.Vector2(c.x, c.z) }; sh.uniforms.uR = { value: R }; sh.uniforms.uS = { value: start };
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vEdgeXZ;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvEdgeXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vEdgeXZ;\nuniform vec2 uC;\nuniform float uR;\nuniform float uS;')
+          .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n float ed = length(vEdgeXZ - uC) / uR; if (ed > 1.0) discard; gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.043, 0.047, 0.062), smoothstep(uS, 1.0, ed));');
+      };
+      mat.customProgramCacheKey = () => 'softedge'; mat.needsUpdate = true;
+    });
+    return R;
+  }
+
+  const pins = []; // {el, v, chapter}
+  function addPin(chapter, title, sub, v) {
+    const el = document.createElement('div'); el.className = 'pin';
+    el.innerHTML = '<i></i><b></b><span></span>'; $('span', el).innerHTML = title + '<em>' + sub + '</em>';
+    $('#pins').appendChild(el); pins.push({ el, v, chapter });
+  }
+
+  function buildSolar() {
+    const g = new THREE.Group();
+    const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d');
+    x.fillStyle = '#2b4a82'; x.fillRect(0, 0, 128, 64); x.strokeStyle = '#8fb1e6'; x.lineWidth = 2;
+    for (let i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(i * 16, 0); x.lineTo(i * 16, 64); x.stroke(); }
+    for (let j = 0; j <= 4; j++) { x.beginPath(); x.moveTo(0, j * 16); x.lineTo(128, j * 16); x.stroke(); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const top = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.38, metalness: 0.35, emissive: 0x1a3566, emissiveIntensity: 1.0 });
+    const side = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, roughness: 0.6, metalness: 0.4 });
+    const post = new THREE.MeshStandardMaterial({ color: 0x6d7482, roughness: 0.7, metalness: 0.3 });
+    const geo = new THREE.BoxGeometry(2.6, 0.1, 1.5);
+    const mats = [side, side, top, side, side, side];
+    for (let r = 0; r < 5; r++) for (let i = 0; i < 9; i++) {
+      const p = new THREE.Mesh(geo, mats); p.position.set((i - 4) * 2.75, 1.1, (r - 2) * 3.6); p.rotation.x = -0.46; g.add(p);
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 6), post); s.position.set(p.position.x, 0.55, p.position.z); g.add(s);
+    }
+    g.position.copy(L.solar); g.rotation.y = -0.35; scene.add(g); return g;
+  }
+  let solarG, damObj = null, damRing = null;
+  async function build() {
+    // 1) hero asset first
+    const plant = await loadModel('thermal'); tame(plant);
+    const pb = place(plant, L.plant, 36);
+    const pR = softEdge(plant, pb); ring(L.plant.x, L.plant.z, pR + 1.2);
+    setKey('hero', pb, 38, 22, 1.22, pR * 1.12); setKey('power', pb, 26, 26, 1.0, pR * 1.12);
+    addPin(0, 'THERMAL POWER', 'Plants, projects, tenders', new THREE.Vector3(pb.max.x - (pb.max.x - pb.min.x) * 0.32, pb.max.y * 0.78, (pb.min.z + pb.max.z) / 2 + 1));
+    canvas.classList.add('ready'); ready = true;
+
+    // 2) procedural renewables (cheap)
+    ring(-218, -49, 24);
+
+    // 3) the rest, in parallel
+    const [dam, pylon, turbine] = await Promise.all([loadModel('dam'), loadModel('pylon'), loadModel('turbine')]);
+    tame(dam); tame(pylon); tame(turbine);
+    const DZ = 8; damObj = dam; const db = place(dam, L.dam.clone().add(new THREE.Vector3(0, 0, DZ)), 64); const dR = softEdge(dam, db, 0.5, 1.7, 0.86); damRing = ring(L.dam.x, L.dam.z + DZ, dR * 1.0); damRing.scale.y = 0.78;
+    setKey('water', db.clone().translate(new THREE.Vector3(0, 0, -DZ)), -24, 30, 0.95, dR * 1.45);
+    K.water.mpad = 1.6; K.water.mz = 8; K.water.my = -13;
+    addPin(1, 'HYDRO', 'Dams, concessions, rehabilitation', new THREE.Vector3((db.min.x + db.max.x) / 2, db.max.y * 0.7, (db.min.z + db.max.z) / 2));
+
+    // wind turbines: the model is a single merged mesh, so it stays still. Two instances, rotors turned toward the renewables camera.
+    const windBoxes = [], tOpts = [[24, -1.15], [20, -1.25]];
+    const turbObjs = L.wind.map((_, i) => i === 0 ? turbine : turbine.clone(true));
+    L.wind.forEach((pos, i) => windBoxes.push(place(turbObjs[i], pos, tOpts[i][0], true, tOpts[i][1])));
+    const renBox = new THREE.Box3(); windBoxes.forEach(b => renBox.union(b));
+    setKey('ren', renBox, -108, 15, 0.9); K.ren.mpad = 2.0; K.ren.my = -11;
+    addPin(3, 'WIND', 'Projects and EPC mandates', new THREE.Vector3(L.wind[0].x, windBoxes[0].max.y * 0.82, L.wind[0].z));
+
+    // pylon line
+    const H = 23; const tops = [];
+    const pylonObjs = L.pylonZ.map((_, i) => i === 0 ? pylon : pylon.clone(true)); // clone before any scaling
+    L.pylonZ.forEach((z, i) => {
+      const o = pylonObjs[i];
+      const bb = place(o, new THREE.Vector3(L.pylonX, 0, z), H, true, Math.PI / 2);
+      tops.push({ bb, z });
+    });
+    const bb0 = tops[0].bb; const armHalf = (bb0.max.x - bb0.min.x) / 2; const cx = (bb0.min.x + bb0.max.x) / 2;
+    const wireMat = new THREE.LineBasicMaterial({ color: 0x9aa0ab, transparent: true, opacity: 0.55 });
+    [[-0.92, 0.93], [0.92, 0.93], [-0.9, 0.78], [0.9, 0.78]].forEach(([ox, hy]) => {
+      for (let i = 0; i < tops.length - 1; i++) {
+        const a = new THREE.Vector3(cx + ox * armHalf, hy * H, tops[i].z), b = new THREE.Vector3(cx + ox * armHalf, hy * H, tops[i + 1].z);
+        const m = a.clone().add(b).multiplyScalar(0.5); m.y -= 1.8;
+        const curve = new THREE.QuadraticBezierCurve3(a, m, b);
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(24)), wireMat));
+      }
+    });
+    const gb = new THREE.Box3(new THREE.Vector3(L.pylonX - 9, 0, L.pylonZ[0] - 4), new THREE.Vector3(L.pylonX + 9, H, L.pylonZ[2] + 4));
+    setKey('grid', gb, -76, 9, 0.8);
+    addPin(2, 'TRANSMISSION', 'Lines, substations, grid', new THREE.Vector3(L.pylonX, H * 0.95, L.pylonZ[1]));
+    ring(L.pylonX, L.pylonZ[1], 34);
+  }
+  build().catch(e => { console.warn('3D load issue', e); }).finally(() => setTimeout(() => $('#loading').classList.add('done'), 400));
+
+  /* ---------- camera rig ---------- */
+  // t = look-at point, az/el in degrees, d = distance
+  // keys are derived from each subject's real bounding box once its model has loaded
+  const dflt = (x, z) => ({ t:[x, 4, z], az:30, el:22, r:16, pad:1.4 });
+  const K = { hero:dflt(2, 0), power:dflt(0, 0), water:dflt(-40, 0), grid:dflt(-88, -9), ren:dflt(48, -30) };
+  function setKey(name, box, az, el, pad, rOverride) {
+    const c = box.getCenter(new THREE.Vector3()), r = rOverride || box.getBoundingSphere(new THREE.Sphere()).radius;
+    K[name] = { t:[c.x, c.y, c.z], az, el, r, pad, mpad: name === 'hero' ? pad * 1.25 : pad };
+  }
+  const chapterKeys = () => [K.power, K.water, K.grid, K.ren];
+  const cur = { tx:K.hero.t[0], ty:K.hero.t[1], tz:K.hero.t[2], az:K.hero.az, el:K.hero.el, d:60, ox:0, oy:0 };
+  function keyVals(k) { return { tx:k.t[0], ty:k.t[1] + (mobile() && k.my ? k.my : 0), tz:k.t[2] + (mobile() && k.mz ? k.mz : 0), az:k.az, el:k.el, d:k.r / Math.sin(camera.fov * Math.PI / 360) * (mobile() ? (k.mpad || k.pad) : k.pad) }; }
+  function mix(a, b, w) { const r = {}; for (const p in a) r[p] = lerp(a[p], b[p], w); return r; }
+
+  let mx = 0, my = 0;
+  addEventListener('pointermove', e => { mx = (e.clientX / innerWidth - 0.5); my = (e.clientY / innerHeight - 0.5); }, { passive: true });
+
+  const journey = $('#journey'), hero = $('#hero');
+  let chapter = -1, w = 0, h = 0, last = performance.now(), time = 0;
+  const clistLis = $$('#clist li'), arts = $$('.chapter');
+  function setChapter(i) {
+    if (i === chapter) return; chapter = i;
+    clistLis.forEach((li, k) => li.classList.toggle('on', k === Math.max(i, 0)));
+    arts.forEach((a, k) => a.classList.toggle('on', k === Math.max(i, 0)));
+  }
+  function resize() {
+    w = innerWidth; h = innerHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, mobile() ? 1.5 : 1.75));
+    scene.fog.density = mobile() ? 0.0028 : 0.0062; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = mobile() ? 44 : 32; camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize); resize();
+
+  const v3 = new THREE.Vector3(), proj = new THREE.Vector3();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; if (!reduce) time += dt;
+    const sy = scrollY, jr = journey.getBoundingClientRect();
+    header.classList.toggle('solid', sy > 40);
+    if (!ready) return;
+    if (jr.bottom < -20) { pins.forEach(p => p.el.classList.remove('show')); return; } // covered by opaque sections: skip work
+
+    const heroP = smooth(0, 0.9, sy / Math.max(1, hero.offsetHeight * 0.9));
+    const j = clamp(-jr.top / Math.max(1, jr.height - h));
+    // chapter selection
+    const s = j * 4, i = Math.min(3, Math.floor(s)), frac = s - i;
+    const idx = jr.top > h * 0.4 ? -1 : i; setChapter(idx);
+    if (damObj) { const vis = j > 0.0001 && (i === 1 || i === 2 || (i === 0 && frac > 0.55)); damObj.visible = vis; if (damRing) damRing.visible = vis; }
+    let target;
+    if (j <= 0.0001) target = mix(keyVals(K.hero), keyVals(K.power), heroP);
+    else {
+      const ck = chapterKeys(), a = keyVals(ck[i]), b = keyVals(ck[Math.min(3, i + 1)]);
+      target = i < 3 ? mix(a, b, smooth(0.6, 1, frac)) : a;
+    }
+    // idle orbit in the hero, slight pointer parallax
+    const orbit = reduce ? 0 : Math.sin(time * 0.12) * 9 * (1 - heroP);
+    const k = 1 - Math.exp(-dt * 3.4);
+    for (const p in target) cur[p] += (target[p] - cur[p]) * k;
+    cur.ox += (mx * 5 - cur.ox) * k; cur.oy += (my * 3 - cur.oy) * k;
+    const az = (cur.az + orbit + cur.ox) * Math.PI / 180, el = (cur.el - cur.oy) * Math.PI / 180;
+    camera.position.set(cur.tx + cur.d * Math.sin(az) * Math.cos(el), cur.ty + cur.d * Math.sin(el), cur.tz + cur.d * Math.cos(az) * Math.cos(el));
+    camera.lookAt(cur.tx, cur.ty, cur.tz);
+    // shift the subject away from the text column
+    if (mobile()) { const oy = lerp(-h * 0.17, h * 0.17, smooth(0.2, 1, Math.max(heroP, j > 0 ? 1 : 0))); camera.setViewOffset(w, h, 0, oy, w, h); }
+    else camera.setViewOffset(w, h, -w * 0.2, 0, w, h);
+    renderer.render(scene, camera);
+
+    // pins
+    const showHero = j <= 0.0001 && heroP < 0.55 && !mobile();
+    pins.forEach(p => {
+      const on = (p.chapter === 0 && showHero) || (j > 0.0001 && p.chapter === chapter);
+      proj.copy(p.v).project(camera);
+      const x = (proj.x * 0.5 + 0.5) * w, y = (-proj.y * 0.5 + 0.5) * h;
+      const visible = on && proj.z < 1 && x > 40 && x < w - 24 && y > 120 && y < (mobile() ? h * 0.45 : h - 40);
+      p.el.classList.toggle('show', visible);
+      if (visible) {
+        const wd = p.el.offsetWidth, flip = x + wd + 16 > w;
+        p.el.classList.toggle('flip', flip);
+        const tx = Math.max(8, Math.min(w - wd - 8, flip ? x - wd + 5 : x - 5));
+        p.el.style.transform = `translate(${tx.toFixed(1)}px,${y.toFixed(1)}px) translateY(-50%)`;
+      }
+    });
+  }
+  requestAnimationFrame(frame);
+}
+</script>
+
+</body>
+</html>
