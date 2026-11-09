@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import DashboardNav from "@/app/dashboard/DashboardNav";
 import AccountForm from "./AccountForm";
 
-export const instant = false;
-
 export default async function AccountPage() {
   const session = await auth();
   if (!session?.user?.id) {

@@ -6,8 +6,6 @@ import { enquiries, listings, organizations } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 import DashboardNav from "../DashboardNav";
 
-export const instant = false;
-
 const ENQUIRY_LABEL: Record<string, string> = {
   interest: "Interest",
   question: "Question",

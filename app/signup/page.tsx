@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 
-export const instant = false;
-
 // /signup is kept as a stable URL but redirects into the unified, tabbed
 // auth page at /login (see app/login/page.tsx + AuthForm.tsx), landing on
 // its "signup" tab.

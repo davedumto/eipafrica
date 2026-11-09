@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import ListingTypeForm from "@/app/admin/config/ListingTypeForm";
 import type { FieldSchemaEntry } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function EditListingTypePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();

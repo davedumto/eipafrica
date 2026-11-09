@@ -13,8 +13,6 @@ import {
 import AppBar from "@/app/components/AppBar";
 import Thread from "./Thread";
 
-export const instant = false;
-
 const ENQUIRY_LABEL: Record<string, string> = {
   interest: "Interest",
   question: "Question",

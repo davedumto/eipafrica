@@ -8,8 +8,6 @@ import AppBar from "@/app/components/AppBar";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 import FeatureToggle from "./FeatureToggle";
 
-export const instant = false;
-
 export default async function AdminListingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin/listings");

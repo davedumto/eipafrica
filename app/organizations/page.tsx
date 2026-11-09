@@ -4,8 +4,6 @@ import { db } from "@/lib/db";
 import { listings, organizations } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 
-export const instant = false;
-
 type SearchParams = { q?: string };
 
 export default async function OrganizationsDirectoryPage({

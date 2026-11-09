@@ -8,8 +8,6 @@ import DashboardNav from "../DashboardNav";
 import ListingRowActions from "./ListingRowActions";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 
-export const instant = false;
-
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
   pending_review: "Pending review",

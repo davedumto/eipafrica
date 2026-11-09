@@ -7,8 +7,6 @@ import { countries, listingTypes, listings, organizations } from "@/lib/db/schem
 import AppBar from "@/app/components/AppBar";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function OrganizationProfilePage({
   params,
 }: {

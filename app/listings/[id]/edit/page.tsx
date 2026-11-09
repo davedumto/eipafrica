@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import ListingWizard from "@/app/listings/ListingWizard";
 import type { FieldSchemaEntry } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function EditListingPage({
   params,
   searchParams,

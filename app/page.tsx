@@ -11,8 +11,6 @@ import Audience from "./components/Audience";
 import Cta from "./components/Cta";
 import Footer from "./components/Footer";
 
-export const instant = false;
-
 export default function Home() {
   return (
     <FilterProvider>

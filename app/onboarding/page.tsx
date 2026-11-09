@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import OnboardingForm from "./OnboardingForm";
 
-export const instant = false;
-
 function safeNext(next: string | undefined): string | undefined {
   if (!next) return undefined;
   if (!next.startsWith("/") || next.startsWith("//")) return undefined;

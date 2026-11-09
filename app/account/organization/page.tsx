@@ -9,8 +9,6 @@ import OrganizationForm from "./OrganizationForm";
 import TeamMembers from "./TeamMembers";
 import InviteForm from "./InviteForm";
 
-export const instant = false;
-
 export default async function OrganizationSettingsPage() {
   const session = await auth();
   if (!session?.user?.id) {

@@ -1,7 +1,5 @@
 import AppBar from "@/app/components/AppBar";
 
-export const instant = false;
-
 export default function PrivacyPage() {
   return (
     <div className="appshell">

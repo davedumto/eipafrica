@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 import SortSelect from "./SortSelect";
 
-export const instant = false;
-
 type SearchParams = {
   q?: string;
   type?: string | string[];

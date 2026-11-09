@@ -1,7 +1,5 @@
 import AppBar from "@/app/components/AppBar";
 
-export const instant = false;
-
 const MODELS = [
   {
     name: "Thermal power plant, cooling tower",

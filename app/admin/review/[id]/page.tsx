@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import ReviewActions from "./ReviewActions";
 import { badgeClassForSlug, formatFieldValue, type FieldSchemaEntry } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function AdminReviewDetailPage({
   params,
 }: {

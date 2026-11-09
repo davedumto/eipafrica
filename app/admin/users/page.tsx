@@ -7,8 +7,6 @@ import { organizationMembers, organizations, users } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 import AdminStatusToggle from "./AdminStatusToggle";
 
-export const instant = false;
-
 export default async function AdminUsersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin/users");

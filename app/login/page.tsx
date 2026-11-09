@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import AuthForm from "./AuthForm";
 
-export const instant = false;
-
 function safeNext(next: string | undefined): string | undefined {
   if (!next) return undefined;
   // Only accept same-origin relative paths — never an absolute URL or a

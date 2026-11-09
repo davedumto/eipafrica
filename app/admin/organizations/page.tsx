@@ -7,8 +7,6 @@ import { organizations } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 import VerifyToggle from "./VerifyToggle";
 
-export const instant = false;
-
 export default async function AdminOrganizationsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin/organizations");

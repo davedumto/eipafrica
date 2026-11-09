@@ -13,8 +13,6 @@ import {
 } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 
-export const instant = false;
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function AdminReportsPage() {

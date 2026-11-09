@@ -3,8 +3,6 @@ import { auth } from "@/lib/auth";
 import AppBar from "@/app/components/AppBar";
 import ListingTypeForm from "@/app/admin/config/ListingTypeForm";
 
-export const instant = false;
-
 export default async function NewListingTypePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin/config/listing-types/new");

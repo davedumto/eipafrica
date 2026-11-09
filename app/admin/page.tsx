@@ -7,8 +7,6 @@ import { listings, listingTypes, organizations, users } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function AdminPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin");

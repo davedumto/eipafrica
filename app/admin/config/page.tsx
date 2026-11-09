@@ -12,8 +12,6 @@ import AddCountryForm from "./AddCountryForm";
 import SectorRow from "./SectorRow";
 import AddSectorForm from "./AddSectorForm";
 
-export const instant = false;
-
 export default async function AdminConfigPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?next=/admin/config");

@@ -7,8 +7,6 @@ import AppBar from "@/app/components/AppBar";
 import DashboardNav from "../DashboardNav";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 
-export const instant = false;
-
 export default async function SavedPage() {
   const session = await auth();
   if (!session?.user?.id) {
