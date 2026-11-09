@@ -6,15 +6,18 @@ import {
   countries,
   enquiries,
   listingDocuments,
+  listingImages,
   listingTypes,
   listings,
   organizations,
   savedListings,
   sectors,
 } from "@/lib/db/schema";
+import { asc } from "drizzle-orm";
 import Link from "next/link";
 import AppBar from "@/app/components/AppBar";
 import EnquiryActions from "./EnquiryActions";
+import ListingGallery from "./ListingGallery";
 import {
   badgeClassForSlug,
   formatFieldValue,
@@ -45,7 +48,7 @@ export default async function ListingDetailPage({
   // same as every other gated page in the app, redirecting back here afterward.
   if (!isLoggedIn) redirect(`/login?next=/opportunities/${id}`);
 
-  const [[type], [org], allCountries, [sector], docs, [saved]] = await Promise.all([
+  const [[type], [org], allCountries, [sector], docs, images, [saved]] = await Promise.all([
     db.select().from(listingTypes).where(eq(listingTypes.id, listing.listingTypeId)).limit(1),
     db.select().from(organizations).where(eq(organizations.id, listing.organizationId)).limit(1),
     db.select().from(countries),
@@ -53,6 +56,11 @@ export default async function ListingDetailPage({
       ? db.select().from(sectors).where(eq(sectors.id, listing.sectorId)).limit(1)
       : Promise.resolve([null]),
     db.select().from(listingDocuments).where(eq(listingDocuments.listingId, listing.id)),
+    db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listing.id))
+      .orderBy(asc(listingImages.sortOrder), asc(listingImages.createdAt)),
     userId
       ? db
           .select({ id: savedListings.id })
@@ -133,6 +141,8 @@ export default async function ListingDetailPage({
               {listing.deadlineAt && <span>Closes {new Date(listing.deadlineAt).toLocaleDateString()}</span>}
             </div>
           </div>
+
+          {images.length > 0 && <ListingGallery images={images.map((img) => ({ id: img.id, url: img.url }))} />}
 
           <div className="detail-grid">
             <div>

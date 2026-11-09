@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FieldSchemaEntry } from "@/lib/listing-fields";
 import DocumentsStep from "./DocumentsStep";
+import ImagesStep from "./ImagesStep";
 
 type ListingType = { id: string; slug: string; name: string; fieldSchema: FieldSchemaEntry[] };
 type Country = { id: string; code: string; name: string };
 type Sector = { id: string; slug: string; name: string };
 
-const STEPS = ["Type", "Basic info", "Location", "Technical details", "Financials", "Documents", "Review"] as const;
+const STEPS = ["Type", "Basic info", "Location", "Technical details", "Financials", "Documents", "Images", "Review"] as const;
 
 const STAGES = [
   { value: "concept", label: "Concept" },
@@ -77,7 +78,11 @@ export default function ListingWizard({
   const [step, setStep] = useState(0);
   const [listingId, setListingId] = useState<string | undefined>(initialListingId);
   const [form, setForm] = useState<FormState>({ ...EMPTY, ...initial });
-  const [saving, setSaving] = useState(false);
+  // Tracks which specific action is in flight (not a single shared flag) so
+  // clicking "Continue" doesn't also make "Save as draft" show "Saving…", and
+  // vice versa — each button only reflects its own request.
+  const [savingAction, setSavingAction] = useState<"draft" | "continue" | "submit" | null>(null);
+  const saving = savingAction !== null;
   const [error, setError] = useState<string | null>(null);
 
   // On mount, jump to the step recorded in the URL (resuming a reload).
@@ -132,12 +137,15 @@ export default function ListingWizard({
     return data.id;
   }
 
-  async function saveDraft(opts: { submit?: boolean } = {}) {
+  async function saveDraft(
+    action: "draft" | "continue" | "submit" = "draft",
+    opts: { submit?: boolean } = {},
+  ) {
     setError(null);
-    setSaving(true);
+    setSavingAction(action);
     const id = await ensureListing();
     if (!id) {
-      setSaving(false);
+      setSavingAction(null);
       return false;
     }
 
@@ -165,7 +173,7 @@ export default function ListingWizard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    setSaving(false);
+    setSavingAction(null);
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -180,7 +188,7 @@ export default function ListingWizard({
       setError("Pick a listing type to continue.");
       return;
     }
-    const ok = await saveDraft();
+    const ok = await saveDraft("continue");
     if (ok) setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
 
@@ -189,7 +197,7 @@ export default function ListingWizard({
   }
 
   async function submit() {
-    const ok = await saveDraft({ submit: true });
+    const ok = await saveDraft("submit", { submit: true });
     if (ok && listingId) {
       router.push(`/listings/${listingId}/edit?submitted=1`);
     }
@@ -542,7 +550,9 @@ export default function ListingWizard({
 
       {step === 5 && <DocumentsStep listingId={listingId} />}
 
-      {step === 6 && (
+      {step === 6 && <ImagesStep listingId={listingId} />}
+
+      {step === 7 && (
         <div className="wiz-grid">
           <div className="span2">
             <h3 style={{ fontSize: 22, fontFamily: "var(--serif)" }}>{form.title || "Untitled listing"}</h3>
@@ -576,16 +586,16 @@ export default function ListingWizard({
           Back
         </button>
         <div style={{ display: "flex", gap: 12 }}>
-          <button className="btn-outline" type="button" onClick={() => saveDraft()} disabled={saving}>
-            {saving ? "Saving…" : "Save as draft"}
+          <button className="btn-outline" type="button" onClick={() => saveDraft("draft")} disabled={saving}>
+            {savingAction === "draft" ? "Saving…" : "Save as draft"}
           </button>
           {step < STEPS.length - 1 ? (
             <button className="btn-primary" type="button" onClick={next} disabled={saving}>
-              {saving ? "Saving…" : "Continue"}
+              {savingAction === "continue" ? "Saving…" : "Continue"}
             </button>
           ) : (
             <button className="btn-primary" type="button" onClick={submit} disabled={saving}>
-              {saving ? "Submitting…" : "Submit for review"}
+              {savingAction === "submit" ? "Submitting…" : "Submit for review"}
             </button>
           )}
         </div>
@@ -594,7 +604,7 @@ export default function ListingWizard({
   );
 }
 
-function GenericField({
+export function GenericField({
   entry,
   value,
   onChange,

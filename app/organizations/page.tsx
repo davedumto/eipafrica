@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, count, desc, eq, ilike } from "drizzle-orm";
+import { and, count, desc, eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { listings, organizations } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
@@ -24,7 +24,7 @@ export default async function OrganizationsDirectoryPage({
     })
     .from(organizations)
     .leftJoin(listings, and(eq(listings.organizationId, organizations.id), eq(listings.status, "live")))
-    .where(q ? ilike(organizations.name, `%${q}%`) : undefined)
+    .where(q ? like(organizations.name, `%${q}%`) : undefined)
     .groupBy(organizations.id)
     .orderBy(desc(organizations.isVerified), desc(count(listings.id)))
     .limit(60);

@@ -55,7 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Not authorized to edit this listing." }, { status: 403 });
   }
 
-  if (listing.status !== "draft" && listing.status !== "pending_review") {
+  if (listing.status !== "draft" && listing.status !== "pending_review" && listing.status !== "live") {
     return NextResponse.json({ error: "This listing can no longer be edited here." }, { status: 400 });
   }
 
@@ -82,13 +82,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       );
     }
     update.status = "pending_review";
+  } else if (listing.status === "live") {
+    // Editing a live listing pulls it back into review — the admin's
+    // original approval covered the previous version, not this edit, so it
+    // comes off the public site until re-approved rather than silently
+    // changing underneath that approval.
+    update.status = "pending_review";
   }
 
   update.updatedAt = new Date();
 
   await db.update(listings).set(update).where(eq(listings.id, id));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status: update.status ?? listing.status });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

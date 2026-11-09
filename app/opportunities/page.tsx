@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { countries, listingTypes, listings, organizations, sectors } from "@/lib/db/schema";
+import { countries, listingTypes, listings, organizations, sectors, type ProjectStage } from "@/lib/db/schema";
 import AppBar from "@/app/components/AppBar";
 import { badgeClassForSlug } from "@/lib/listing-fields";
 import SortSelect from "./SortSelect";
@@ -65,10 +65,10 @@ export default async function OpportunitiesPage({
   if (q) {
     conditions.push(
       or(
-        ilike(listings.title, `%${q}%`),
-        ilike(listings.summary, `%${q}%`),
-        ilike(listings.city, `%${q}%`),
-        ilike(listings.region, `%${q}%`),
+        like(listings.title, `%${q}%`),
+        like(listings.summary, `%${q}%`),
+        like(listings.city, `%${q}%`),
+        like(listings.region, `%${q}%`),
       )!,
     );
   }
@@ -84,20 +84,25 @@ export default async function OpportunitiesPage({
   }
 
   if (stages.length) {
-    conditions.push(inArray(listings.projectStage, stages as (typeof listings.projectStage.enumValues)[number][]));
+    conditions.push(inArray(listings.projectStage, stages as ProjectStage[]));
   }
 
   if (min !== undefined && !Number.isNaN(min)) {
-    conditions.push(gte(listings.dealSizeUsd, String(min)));
+    conditions.push(gte(listings.dealSizeUsd, min));
   }
   if (max !== undefined && !Number.isNaN(max)) {
-    conditions.push(lte(listings.dealSizeUsd, String(max)));
+    conditions.push(lte(listings.dealSizeUsd, max));
   }
 
   if (countryCodes.length) {
     const ids = allCountries.filter((c) => countryCodes.includes(c.code)).map((c) => c.id);
     if (ids.length) {
-      conditions.push(sql`${listings.countryIds} ?| array[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}]`);
+      // SQLite has no Postgres-style jsonb "?|" operator — this checks
+      // whether listings.country_ids (a JSON array of ids) contains at
+      // least one of the given ids, via json_each + EXISTS.
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM json_each(${listings.countryIds}) WHERE json_each.value IN (${sql.join(ids, sql`, `)}))`,
+      );
     }
   }
 

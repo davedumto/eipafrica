@@ -59,7 +59,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const inUse = await db
     .select({ id: listings.id })
     .from(listings)
-    .where(sql`${listings.countryIds} ?| array[${id}]`)
+    .where(sql`EXISTS (SELECT 1 FROM json_each(${listings.countryIds}) WHERE json_each.value = ${id})`)
     .limit(1);
   if (inUse.length) {
     return NextResponse.json(

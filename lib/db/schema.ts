@@ -1,73 +1,71 @@
 import {
-  pgTable,
-  pgEnum,
-  uuid,
+  sqliteTable,
   text,
-  varchar,
-  timestamp,
-  boolean,
-  jsonb,
-  numeric,
   integer,
+  real,
   uniqueIndex,
-} from "drizzle-orm/pg-core";
+  customType,
+} from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
-export const orgRoleEnum = pgEnum("org_role", ["org_admin", "member"]);
+// SQLite has no native enum type — these stay as plain `text` columns.
+// The TypeScript union types below are the enforcement layer (compile-time
+// here, validated at every API boundary that writes one of these columns).
+export type OrgRole = "org_admin" | "member";
+export type ListingStatus = "draft" | "pending_review" | "live" | "paused" | "closed";
+export type ListingVisibility = "public" | "members_only" | "private";
+export type ProjectStage =
+  | "concept"
+  | "feasibility"
+  | "development"
+  | "financial_close"
+  | "construction"
+  | "operational";
+export type DocumentTag = "public" | "confidential";
+export type EnquiryType = "interest" | "question" | "document_request" | "bid";
+export type EnquiryStatus = "pending" | "accepted" | "declined";
+export type NotificationType =
+  | "new_enquiry"
+  | "new_message"
+  | "enquiry_accepted"
+  | "enquiry_declined"
+  | "listing_approved"
+  | "listing_sent_back"
+  | "org_verified"
+  | "deadline_approaching";
 
-export const listingStatusEnum = pgEnum("listing_status", [
-  "draft",
-  "pending_review",
-  "live",
-  "paused",
-  "closed",
-]);
+function uuidPk(name = "id") {
+  return text(name)
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID());
+}
 
-export const listingVisibilityEnum = pgEnum("listing_visibility", [
-  "public",
-  "members_only",
-  "private",
-]);
+// Stored as ISO-8601 text (so dates sort/compare correctly as strings,
+// unlike SQLite's native CURRENT_TIMESTAMP format), but typed as a real `Date`
+// on both read and write — every existing `new Date(row.createdAt)` read and
+// `updatedAt: new Date()` write across the app keeps working unchanged.
+// Drizzle's built-in SQLite `{ mode: "timestamp" }` stores unix-epoch
+// integers instead, which would touch far more call sites than the schema.
+const isoDate = customType<{ data: Date; driverData: string }>({
+  dataType() {
+    return "text";
+  },
+  toDriver(value) {
+    return value.toISOString();
+  },
+  fromDriver(value) {
+    return new Date(value);
+  },
+});
 
-export const projectStageEnum = pgEnum("project_stage", [
-  "concept",
-  "feasibility",
-  "development",
-  "financial_close",
-  "construction",
-  "operational",
-]);
-
-export const documentTagEnum = pgEnum("document_tag", ["public", "confidential"]);
-
-export const enquiryTypeEnum = pgEnum("enquiry_type", [
-  "interest",
-  "question",
-  "document_request",
-  "bid",
-]);
-
-export const enquiryStatusEnum = pgEnum("enquiry_status", [
-  "pending",
-  "accepted",
-  "declined",
-]);
-
-export const notificationTypeEnum = pgEnum("notification_type", [
-  "new_enquiry",
-  "new_message",
-  "enquiry_accepted",
-  "enquiry_declined",
-  "listing_approved",
-  "listing_sent_back",
-  "org_verified",
-  "deadline_approaching",
-]);
+function isoTimestamp(name: string) {
+  return isoDate(name);
+}
 
 // ---------- users ----------
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const users = sqliteTable("users", {
+  id: uuidPk(),
   // `name` stays as the combined "First Last" display name so every existing
   // read site (session.user.name, email templates, message sender labels,
   // etc.) keeps working unchanged. firstName/lastName are the source of
@@ -79,11 +77,11 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   phone: text("phone"),
   passwordHash: text("password_hash"),
-  emailVerified: timestamp("email_verified", { withTimezone: true }),
-  isAdmin: boolean("is_admin").notNull().default(false),
-  emailAlertsEnabled: boolean("email_alerts_enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  emailVerified: isoTimestamp("email_verified"),
+  isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+  emailAlertsEnabled: integer("email_alerts_enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
+  updatedAt: isoTimestamp("updated_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -97,17 +95,17 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 // ---------- password reset ----------
 
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: uuidPk(),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   // Only a hash of the token is stored — the raw token exists solely in the
   // emailed link and is never persisted.
   tokenHash: text("token_hash").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  usedAt: timestamp("used_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: isoTimestamp("expires_at").notNull(),
+  usedAt: isoTimestamp("used_at"),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
@@ -119,15 +117,15 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
 
 // ---------- organizations ----------
 
-export const organizations = pgTable("organizations", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const organizations = sqliteTable("organizations", {
+  id: uuidPk(),
   name: text("name").notNull(),
   description: text("description"),
   website: text("website"),
-  isVerified: boolean("is_verified").notNull().default(false),
-  verifiedAt: timestamp("verified_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  isVerified: integer("is_verified", { mode: "boolean" }).notNull().default(false),
+  verifiedAt: isoTimestamp("verified_at"),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
+  updatedAt: isoTimestamp("updated_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -135,18 +133,18 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   listings: many(listings),
 }));
 
-export const organizationMembers = pgTable(
+export const organizationMembers = sqliteTable(
   "organization_members",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    organizationId: uuid("organization_id")
+    id: uuidPk(),
+    organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: orgRoleEnum("role").notNull().default("member"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    role: text("role").$type<OrgRole>().notNull().default("member"),
+    createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
   },
   (t) => [uniqueIndex("org_members_org_user_unique").on(t.organizationId, t.userId)],
 );
@@ -162,22 +160,22 @@ export const organizationMembersRelations = relations(organizationMembers, ({ on
   }),
 }));
 
-export const organizationInvites = pgTable("organization_invites", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+export const organizationInvites = sqliteTable("organization_invites", {
+  id: uuidPk(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
-  role: orgRoleEnum("role").notNull().default("member"),
-  invitedByUserId: uuid("invited_by_user_id")
+  role: text("role").$type<OrgRole>().notNull().default("member"),
+  invitedByUserId: text("invited_by_user_id")
     .notNull()
     .references(() => users.id),
   // Only a hash of the token is stored, same pattern as password_reset_tokens —
   // the raw token exists solely in the emailed link.
   tokenHash: text("token_hash").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: isoTimestamp("expires_at").notNull(),
+  acceptedAt: isoTimestamp("accepted_at"),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const organizationInvitesRelations = relations(organizationInvites, ({ one }) => ({
@@ -193,45 +191,45 @@ export const organizationInvitesRelations = relations(organizationInvites, ({ on
 
 // ---------- reference data: listing types, countries, sectors ----------
 
-export const listingTypes = pgTable("listing_types", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  slug: varchar("slug", { length: 64 }).notNull().unique(),
+export const listingTypes = sqliteTable("listing_types", {
+  id: uuidPk(),
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   // Describes the extra/custom fields this listing type exposes, e.g.
   // [{ key: "capacity", label: "Capacity (MW/km/units)", type: "text" }, ...]
-  fieldSchema: jsonb("field_schema").notNull().default([]),
+  fieldSchema: text("field_schema", { mode: "json" }).notNull().default([]),
   sortOrder: integer("sort_order").notNull().default(0),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
-export const countries = pgTable("countries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  code: varchar("code", { length: 2 }).notNull().unique(),
+export const countries = sqliteTable("countries", {
+  id: uuidPk(),
+  code: text("code").notNull().unique(),
   name: text("name").notNull(),
   region: text("region"),
-  isActive: boolean("is_active").notNull().default(true),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
 
-export const sectors = pgTable("sectors", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  slug: varchar("slug", { length: 64 }).notNull().unique(),
+export const sectors = sqliteTable("sectors", {
+  id: uuidPk(),
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
-  parentId: uuid("parent_id").references((): any => sectors.id, { onDelete: "set null" }),
-  isActive: boolean("is_active").notNull().default(true),
+  parentId: text("parent_id").references((): any => sectors.id, { onDelete: "set null" }),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
 
 // ---------- listings ----------
 
-export const listings = pgTable("listings", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id")
+export const listings = sqliteTable("listings", {
+  id: uuidPk(),
+  organizationId: text("organization_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
-  createdByUserId: uuid("created_by_user_id")
+  createdByUserId: text("created_by_user_id")
     .notNull()
     .references(() => users.id),
-  listingTypeId: uuid("listing_type_id")
+  listingTypeId: text("listing_type_id")
     .notNull()
     .references(() => listingTypes.id),
 
@@ -239,39 +237,39 @@ export const listings = pgTable("listings", {
   summary: text("summary").notNull(),
   description: text("description"),
 
-  sectorId: uuid("sector_id").references(() => sectors.id),
-  countryIds: jsonb("country_ids").notNull().default([]), // uuid[] as jsonb, one-or-more countries
+  sectorId: text("sector_id").references(() => sectors.id),
+  countryIds: text("country_ids", { mode: "json" }).notNull().default([]), // uuid[] as JSON, one-or-more countries
   region: text("region"),
   city: text("city"),
-  gpsLat: numeric("gps_lat", { precision: 9, scale: 6 }),
-  gpsLng: numeric("gps_lng", { precision: 9, scale: 6 }),
+  gpsLat: real("gps_lat"),
+  gpsLng: real("gps_lng"),
 
-  dealSizeAmount: numeric("deal_size_amount", { precision: 18, scale: 2 }),
-  dealSizeCurrency: varchar("deal_size_currency", { length: 3 }),
-  dealSizeUsd: numeric("deal_size_usd", { precision: 18, scale: 2 }),
+  dealSizeAmount: real("deal_size_amount"),
+  dealSizeCurrency: text("deal_size_currency"),
+  dealSizeUsd: real("deal_size_usd"),
 
-  projectStage: projectStageEnum("project_stage"),
-  deadlineAt: timestamp("deadline_at", { withTimezone: true }),
-  deadlineReminderSentAt: timestamp("deadline_reminder_sent_at", { withTimezone: true }),
+  projectStage: text("project_stage").$type<ProjectStage>(),
+  deadlineAt: isoTimestamp("deadline_at"),
+  deadlineReminderSentAt: isoTimestamp("deadline_reminder_sent_at"),
 
-  status: listingStatusEnum("status").notNull().default("draft"),
-  visibility: listingVisibilityEnum("visibility").notNull().default("public"),
-  isAnonymous: boolean("is_anonymous").notNull().default(false),
-  isFeatured: boolean("is_featured").notNull().default(false),
+  status: text("status").$type<ListingStatus>().notNull().default("draft"),
+  visibility: text("visibility").$type<ListingVisibility>().notNull().default("public"),
+  isAnonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(false),
+  isFeatured: integer("is_featured", { mode: "boolean" }).notNull().default(false),
 
   // Type-specific extra fields, keyed per listing_types.field_schema
-  extraFields: jsonb("extra_fields").notNull().default({}),
+  extraFields: text("extra_fields", { mode: "json" }).notNull().default({}),
 
-  tags: jsonb("tags").notNull().default([]),
+  tags: text("tags", { mode: "json" }).notNull().default([]),
 
   reviewComments: text("review_comments"),
-  reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedByUserId: text("reviewed_by_user_id").references(() => users.id),
+  reviewedAt: isoTimestamp("reviewed_at"),
 
   viewCount: integer("view_count").notNull().default(0),
 
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
+  updatedAt: isoTimestamp("updated_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const listingsRelations = relations(listings, ({ one, many }) => ({
@@ -292,20 +290,21 @@ export const listingsRelations = relations(listings, ({ one, many }) => ({
     references: [sectors.id],
   }),
   documents: many(listingDocuments),
+  images: many(listingImages),
   enquiries: many(enquiries),
   savedBy: many(savedListings),
 }));
 
-export const listingDocuments = pgTable("listing_documents", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  listingId: uuid("listing_id")
+export const listingDocuments = sqliteTable("listing_documents", {
+  id: uuidPk(),
+  listingId: text("listing_id")
     .notNull()
     .references(() => listings.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   filename: text("filename").notNull(),
-  tag: documentTagEnum("tag").notNull().default("public"),
-  uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  tag: text("tag").$type<DocumentTag>().notNull().default("public"),
+  uploadedByUserId: text("uploaded_by_user_id").references(() => users.id),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const listingDocumentsRelations = relations(listingDocuments, ({ one, many }) => ({
@@ -316,33 +315,54 @@ export const listingDocumentsRelations = relations(listingDocuments, ({ one, man
   downloads: many(documentDownloads),
 }));
 
-export const documentDownloads = pgTable("document_downloads", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  documentId: uuid("document_id")
+export const listingImages = sqliteTable("listing_images", {
+  id: uuidPk(),
+  listingId: text("listing_id")
+    .notNull()
+    .references(() => listings.id, { onDelete: "cascade" }),
+  // Cloudinary's asset id — needed to delete the asset from Cloudinary itself,
+  // not just the DB row, when a listing owner removes an image.
+  publicId: text("public_id").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  uploadedByUserId: text("uploaded_by_user_id").references(() => users.id),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
+});
+
+export const listingImagesRelations = relations(listingImages, ({ one }) => ({
+  listing: one(listings, {
+    fields: [listingImages.listingId],
+    references: [listings.id],
+  }),
+}));
+
+export const documentDownloads = sqliteTable("document_downloads", {
+  id: uuidPk(),
+  documentId: text("document_id")
     .notNull()
     .references(() => listingDocuments.id, { onDelete: "cascade" }),
-  userId: uuid("user_id")
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  downloadedAt: timestamp("downloaded_at", { withTimezone: true }).notNull().defaultNow(),
+  downloadedAt: isoTimestamp("downloaded_at").notNull().$defaultFn(() => new Date()),
 });
 
 // ---------- enquiries & messaging ----------
 
-export const enquiries = pgTable("enquiries", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  listingId: uuid("listing_id")
+export const enquiries = sqliteTable("enquiries", {
+  id: uuidPk(),
+  listingId: text("listing_id")
     .notNull()
     .references(() => listings.id, { onDelete: "cascade" }),
-  fromUserId: uuid("from_user_id")
+  fromUserId: text("from_user_id")
     .notNull()
     .references(() => users.id),
-  type: enquiryTypeEnum("type").notNull(),
-  status: enquiryStatusEnum("status").notNull().default("pending"),
-  bidAmount: numeric("bid_amount", { precision: 18, scale: 2 }),
-  bidCurrency: varchar("bid_currency", { length: 3 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  type: text("type").$type<EnquiryType>().notNull(),
+  status: text("status").$type<EnquiryStatus>().notNull().default("pending"),
+  bidAmount: real("bid_amount"),
+  bidCurrency: text("bid_currency"),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
+  updatedAt: isoTimestamp("updated_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const enquiriesRelations = relations(enquiries, ({ one, many }) => ({
@@ -357,16 +377,16 @@ export const enquiriesRelations = relations(enquiries, ({ one, many }) => ({
   messages: many(messages),
 }));
 
-export const messages = pgTable("messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  enquiryId: uuid("enquiry_id")
+export const messages = sqliteTable("messages", {
+  id: uuidPk(),
+  enquiryId: text("enquiry_id")
     .notNull()
     .references(() => enquiries.id, { onDelete: "cascade" }),
-  fromUserId: uuid("from_user_id")
+  fromUserId: text("from_user_id")
     .notNull()
     .references(() => users.id),
   body: text("body").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const messagesRelations = relations(messages, ({ one }) => ({
@@ -382,45 +402,45 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 
 // ---------- saved listings / searches ----------
 
-export const savedListings = pgTable(
+export const savedListings = sqliteTable(
   "saved_listings",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
+    id: uuidPk(),
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    listingId: uuid("listing_id")
+    listingId: text("listing_id")
       .notNull()
       .references(() => listings.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
   },
   (t) => [uniqueIndex("saved_listings_user_listing_unique").on(t.userId, t.listingId)],
 );
 
-export const savedSearches = pgTable("saved_searches", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+export const savedSearches = sqliteTable("saved_searches", {
+  id: uuidPk(),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  query: jsonb("query").notNull().default({}), // serialized filter state
-  emailAlerts: boolean("email_alerts").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  query: text("query", { mode: "json" }).notNull().default({}), // serialized filter state
+  emailAlerts: integer("email_alerts", { mode: "boolean" }).notNull().default(true),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 // ---------- notifications ----------
 
-export const notifications = pgTable("notifications", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+export const notifications = sqliteTable("notifications", {
+  id: uuidPk(),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  type: notificationTypeEnum("type").notNull(),
+  type: text("type").$type<NotificationType>().notNull(),
   title: text("title").notNull(),
   body: text("body"),
   linkUrl: text("link_url"),
-  readAt: timestamp("read_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  readAt: isoTimestamp("read_at"),
+  createdAt: isoTimestamp("created_at").notNull().$defaultFn(() => new Date()),
 });
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
