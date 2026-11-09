@@ -26,13 +26,26 @@ export default function AuthForm({
   // Signup-only
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmTouched, setConfirmTouched] = useState(false);
+
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const passwordsMismatched = confirmTouched && confirmPassword.length > 0 && password !== confirmPassword;
+
   useEffect(() => {
     if (justReset) showToast("Password updated. Log in with your new password.", "success");
   }, [justReset]);
+
+  useEffect(() => {
+    setConfirmPassword("");
+    setConfirmTouched(false);
+  }, [tab]);
 
   function onboardingHref() {
     return next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding";
@@ -57,6 +70,13 @@ export default function AuthForm({
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (password !== confirmPassword) {
+      setConfirmTouched(true);
+      setError("Passwords don't match.");
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch("/api/signup", {
@@ -150,14 +170,26 @@ export default function AuthForm({
             </div>
             <div className="auth-field">
               <label htmlFor="login-password">Password</label>
-              <input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="auth-field-password-wrap">
+                <input
+                  id="login-password"
+                  type={showLoginPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-field-eye"
+                  onClick={() => setShowLoginPassword((v) => !v)}
+                  aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showLoginPassword}
+                  tabIndex={-1}
+                >
+                  <EyeIcon open={showLoginPassword} />
+                </button>
+              </div>
             </div>
             <div className="auth-forgot">
               <Link href="/forgot-password">Forgot password?</Link>
@@ -201,15 +233,59 @@ export default function AuthForm({
             </div>
             <div className="auth-field">
               <label htmlFor="signup-password">Password</label>
-              <input
-                id="signup-password"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="auth-field-password-wrap">
+                <input
+                  id="signup-password"
+                  type={showSignupPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-field-eye"
+                  onClick={() => setShowSignupPassword((v) => !v)}
+                  aria-label={showSignupPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showSignupPassword}
+                  tabIndex={-1}
+                >
+                  <EyeIcon open={showSignupPassword} />
+                </button>
+              </div>
+            </div>
+            <div className="auth-field">
+              <label htmlFor="signup-confirm-password">Confirm password</label>
+              <div className={`auth-field-password-wrap${passwordsMismatched ? " has-error" : ""}`}>
+                <input
+                  id="signup-confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={() => setConfirmTouched(true)}
+                  aria-invalid={passwordsMismatched}
+                  aria-describedby={passwordsMismatched ? "signup-confirm-password-error" : undefined}
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-field-eye"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showConfirmPassword}
+                  tabIndex={-1}
+                >
+                  <EyeIcon open={showConfirmPassword} />
+                </button>
+              </div>
+              {passwordsMismatched && (
+                <p id="signup-confirm-password-error" role="alert" className="auth-field-hint">
+                  Passwords don&rsquo;t match.
+                </p>
+              )}
             </div>
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? "Creating account…" : "Create account"}
@@ -250,5 +326,27 @@ export default function AuthForm({
         </p>
       </div>
     </div>
+  );
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+        <path d="M1.5 9S4 3.5 9 3.5 16.5 9 16.5 9 14 14.5 9 14.5 1.5 9 1.5 9Z" strokeLinejoin="round" />
+        <circle cx="9" cy="9" r="2.25" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path
+        d="M7.3 4.13A8.3 8.3 0 0 1 9 3.95c5 0 7.5 5.05 7.5 5.05a13.86 13.86 0 0 1-2.1 2.9m-2.5 1.52A7.3 7.3 0 0 1 9 14.05c-5 0-7.5-5.05-7.5-5.05A13.76 13.76 0 0 1 4.9 5.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M7.3 10.7a2.25 2.25 0 0 1 3.18-3.18" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 2l14 14" strokeLinecap="round" />
+    </svg>
   );
 }
