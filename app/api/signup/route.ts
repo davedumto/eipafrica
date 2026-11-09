@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -56,10 +56,15 @@ export async function POST(req: Request) {
     // Best-effort welcome email: a mail-sending failure should never fail signup,
     // since the account is already created at this point.
     try {
+      const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       await sendEmail({
         to: created.email,
         subject: "Welcome to EIP Africa",
-        html: `<p>Hi ${created.name}, your account has been created.</p>`,
+        html: buildEmailTemplate({
+          heading: `Welcome, ${created.name}`,
+          paragraphs: ["Your account is ready. Browse live opportunities or post your own listing to get started."],
+          cta: { label: "Browse opportunities", url: `${appUrl}/opportunities` },
+        }),
       });
     } catch (emailError) {
       console.error("[signup] welcome email failed:", emailError);

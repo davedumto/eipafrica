@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { enquiries, listings, messages, organizationMembers, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 import { getPusherServer, enquiryChannelName } from "@/lib/pusher";
 import { createNotification } from "@/lib/notifications";
 
@@ -90,10 +90,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   if (recipient) {
     if (recipient.emailAlertsEnabled) {
+      const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       await sendEmail({
         to: recipient.email,
         subject: `New reply on "${participant.listing.title}"`,
-        html: `<p>You have a new reply on your conversation about "${participant.listing.title}".</p><p>${text}</p>`,
+        html: buildEmailTemplate({
+          heading: "New reply",
+          paragraphs: [`You have a new reply on your conversation about <strong>${participant.listing.title}</strong>.`],
+          quote: { from: session.user.name ?? "Someone", body: text },
+          cta: { label: "View conversation", url: `${appUrl}/messages?enquiry=${id}` },
+        }),
       });
     }
 

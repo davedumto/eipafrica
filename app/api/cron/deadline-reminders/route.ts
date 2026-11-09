@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { listings, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 
 const REMINDER_WINDOW_DAYS = 3;
@@ -36,10 +36,15 @@ export async function GET(req: Request) {
     const deadlineLabel = listing.deadlineAt ? new Date(listing.deadlineAt).toLocaleDateString() : "soon";
 
     if (owner.emailAlertsEnabled) {
+      const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       await sendEmail({
         to: owner.email,
         subject: `Deadline approaching for "${listing.title}"`,
-        html: `<p><strong>${listing.title}</strong> closes on ${deadlineLabel}. You can extend or close it out from your dashboard.</p>`,
+        html: buildEmailTemplate({
+          heading: "Deadline approaching",
+          paragraphs: [`<strong>${listing.title}</strong> closes on ${deadlineLabel}. You can extend or close it out from your dashboard.`],
+          cta: { label: "Go to dashboard", url: `${appUrl}/dashboard/listings` },
+        }),
       }).catch((err) => console.error("[cron:deadline-reminders] email failed:", err));
     }
 

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listings, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -51,10 +51,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (owner?.email) {
     if (action === "approve") {
       if (owner.emailAlertsEnabled) {
+        const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         await sendEmail({
           to: owner.email,
           subject: `Your listing "${listing.title}" is now live`,
-          html: `<p>Good news — <strong>${listing.title}</strong> has been approved and is now live on EIP Africa.</p>`,
+          html: buildEmailTemplate({
+            heading: "Your listing is live",
+            paragraphs: [`Good news, <strong>${listing.title}</strong> has been approved and is now live on EIP Africa.`],
+            cta: { label: "View listing", url: `${appUrl}/opportunities/${id}` },
+          }),
         }).catch((err) => console.error("[admin review] approve email failed:", err));
       }
 
@@ -66,10 +71,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
     } else {
       if (owner.emailAlertsEnabled) {
+        const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         await sendEmail({
           to: owner.email,
           subject: `Your listing "${listing.title}" needs a few changes`,
-          html: `<p>Your listing <strong>${listing.title}</strong> was sent back to draft by our review team.</p><p>${comments}</p><p>You can update and resubmit it from your dashboard.</p>`,
+          html: buildEmailTemplate({
+            heading: "Changes requested",
+            paragraphs: [`Your listing <strong>${listing.title}</strong> was sent back to draft by our review team.`],
+            quote: { from: "Review team", body: comments },
+            cta: { label: "Edit listing", url: `${appUrl}/listings/${id}/edit` },
+          }),
         }).catch((err) => console.error("[admin review] send-back email failed:", err));
       }
 

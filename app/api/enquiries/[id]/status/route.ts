@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { enquiries, listings, organizationMembers, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 import { getPusherServer, enquiryChannelName } from "@/lib/pusher";
 import { createNotification } from "@/lib/notifications";
 
@@ -61,10 +61,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .limit(1);
   if (sender) {
     if (sender.emailAlertsEnabled) {
+      const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       await sendEmail({
         to: sender.email,
         subject: `Your enquiry on "${row.listing.title}" was ${status}`,
-        html: `<p>Your enquiry on "${row.listing.title}" has been ${status} by the owner.</p>`,
+        html: buildEmailTemplate({
+          heading: status === "accepted" ? "Enquiry accepted" : "Enquiry declined",
+          paragraphs: [`Your enquiry on <strong>${row.listing.title}</strong> has been ${status} by the owner.`],
+          cta: { label: "View conversation", url: `${appUrl}/messages?enquiry=${id}` },
+        }),
       });
     }
 

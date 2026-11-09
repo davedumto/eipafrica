@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { organizationInvites, organizationMembers, organizations, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -125,7 +125,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await sendEmail({
     to: email,
     subject: `You've been invited to join ${org.name} on EIP Africa`,
-    html: `<p>${session.user.name ?? "Someone"} invited you to join <strong>${org.name}</strong> on EIP Africa.</p><p><a href="${acceptUrl}">${acceptUrl}</a></p><p>This invite expires in 7 days.</p>`,
+    html: buildEmailTemplate({
+      heading: "You've been invited",
+      paragraphs: [
+        `${session.user.name ?? "Someone"} invited you to join <strong>${org.name}</strong> on EIP Africa.`,
+      ],
+      cta: { label: "Accept invite", url: acceptUrl },
+      footnote: "This invite expires in 7 days.",
+    }),
   });
 
   return NextResponse.json({ ok: true, email });

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, passwordResetTokens } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -51,7 +51,12 @@ export async function POST(req: Request) {
     await sendEmail({
       to: user.email,
       subject: "Reset your EIP Africa password",
-      html: `<p>Hi ${user.name},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+      html: buildEmailTemplate({
+        heading: "Reset your password",
+        paragraphs: [`Hi ${user.name}, click below to choose a new password.`],
+        cta: { label: "Reset password", url: resetUrl },
+        footnote: "This link expires in 1 hour. If you didn't request this, you can ignore this email.",
+      }),
     });
   } catch (error) {
     console.error("[forgot-password] failed:", error);

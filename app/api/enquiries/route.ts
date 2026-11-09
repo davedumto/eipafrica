@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { enquiries, listings, messages, organizationMembers, users } from "@/lib/db/schema";
-import { sendEmail } from "@/lib/email";
+import { buildEmailTemplate, sendEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 
 const VALID_TYPES = ["interest", "question", "document_request", "bid"] as const;
@@ -50,10 +50,16 @@ export async function POST(req: Request) {
 
   if (owner) {
     if (owner.emailAlertsEnabled) {
+      const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       await sendEmail({
         to: owner.email,
         subject: `New ${type.replace("_", " ")} on "${listing.title}"`,
-        html: `<p>You have a new enquiry on your listing "${listing.title}".</p>${message ? `<p>${message}</p>` : ""}`,
+        html: buildEmailTemplate({
+          heading: "New enquiry",
+          paragraphs: [`You have a new enquiry on your listing <strong>${listing.title}</strong>.`],
+          quote: message ? { from: session.user.name ?? "Someone", body: message } : undefined,
+          cta: { label: "View conversation", url: `${appUrl}/messages?enquiry=${enquiry.id}` },
+        }),
       });
     }
 
