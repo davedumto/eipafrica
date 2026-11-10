@@ -142,12 +142,84 @@ export default async function ListingDetailPage({
             </div>
           </div>
 
+          <dl className="stat-strip">
+            {dealLabel && (
+              <div className="stat-primary">
+                <span className="stat-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.25" />
+                    <path d="M8 4.5v7M10 6.2c0-.9-.9-1.7-2-1.7s-2 .7-2 1.6.9 1.3 2 1.5c1.1.2 2 .6 2 1.5S9.1 11 8 11s-2-.7-2-1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div>
+                  <dt>Deal size</dt>
+                  <dd>{dealLabel}</dd>
+                </div>
+              </div>
+            )}
+            {listing.projectStage && (
+              <div>
+                <span className="stat-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                    <path d="M2 14 6 6l3 3 5-7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div>
+                  <dt>Stage</dt>
+                  <dd style={{ textTransform: "capitalize" }}>{listing.projectStage.replace("_", " ")}</dd>
+                </div>
+              </div>
+            )}
+            {sector && (
+              <div>
+                <span className="stat-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                    <path d="M8 1.5 14.5 5v6L8 14.5 1.5 11V5Z" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div>
+                  <dt>Sector</dt>
+                  <dd>{sector.name}</dd>
+                </div>
+              </div>
+            )}
+            <div>
+              <span className="stat-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M8 14.5S13 10 13 6.5a5 5 0 0 0-10 0C3 10 8 14.5 8 14.5Z" strokeLinejoin="round" />
+                  <circle cx="8" cy="6.5" r="1.75" />
+                </svg>
+              </span>
+              <div>
+                <dt>Location</dt>
+                <dd>{countryNames || listing.region || "—"}</dd>
+              </div>
+            </div>
+            {listing.deadlineAt && (
+              <div>
+                <span className="stat-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                    <rect x="2" y="3" width="12" height="11" rx="2" />
+                    <path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div>
+                  <dt>Closes</dt>
+                  <dd>{new Date(listing.deadlineAt).toLocaleDateString()}</dd>
+                </div>
+              </div>
+            )}
+          </dl>
+
           {images.length > 0 && <ListingGallery images={images.map((img) => ({ id: img.id, url: img.url }))} />}
 
           <div className="detail-grid">
             <div>
               <section className="detail-section">
                 <h2>Summary</h2>
+                {listing.city && (
+                  <p style={{ marginTop: 10, fontSize: 13, color: "var(--on-bone-faint)" }}>{listing.city}</p>
+                )}
                 <p style={{ marginTop: 12, fontSize: 16, lineHeight: 1.6, color: "var(--on-bone-muted)" }}>
                   {listing.summary}
                 </p>
@@ -156,36 +228,6 @@ export default async function ListingDetailPage({
                     {listing.description}
                   </p>
                 )}
-              </section>
-
-              <section className="detail-section">
-                <h2>Key details</h2>
-                <dl className="fieldlist">
-                  {dealLabel && (
-                    <div>
-                      <dt>Deal / contract size</dt>
-                      <dd>{dealLabel}</dd>
-                    </div>
-                  )}
-                  {listing.projectStage && (
-                    <div>
-                      <dt>Project stage</dt>
-                      <dd>{listing.projectStage.replace("_", " ")}</dd>
-                    </div>
-                  )}
-                  {listing.city && (
-                    <div>
-                      <dt>City</dt>
-                      <dd>{listing.city}</dd>
-                    </div>
-                  )}
-                  {countryNames && (
-                    <div>
-                      <dt>Country</dt>
-                      <dd>{countryNames}</dd>
-                    </div>
-                  )}
-                </dl>
               </section>
 
               {fieldSchema.length > 0 && (
@@ -242,20 +284,29 @@ export default async function ListingDetailPage({
             </div>
 
             <aside className="detail-side">
-              {revealOwner && org ? (
-                <Link className="org" href={`/organizations/${org.id}`}>
-                  {org.name}
-                </Link>
-              ) : (
-                <span className="org">Anonymous developer</span>
-              )}
-              {org?.isVerified && <span className="verified">✓ Verified organization</span>}
-              <EnquiryActions
-                listingId={listing.id}
-                isLoggedIn={isLoggedIn}
-                isTender={type?.slug === "tender-procurement-request"}
-                initiallySaved={Boolean(saved)}
-              />
+              <div className="detail-side-org">
+                <span className="lab">Posted by</span>
+                {revealOwner && org ? (
+                  <Link className="org" href={`/organizations/${org.id}`}>
+                    {org.name}
+                  </Link>
+                ) : (
+                  <span className="org">Anonymous developer</span>
+                )}
+                {org?.isVerified && (
+                  <span className="verified" style={{ display: "flex", width: "fit-content" }}>
+                    ✓ Verified organization
+                  </span>
+                )}
+              </div>
+              <div className="detail-side-actions">
+                <EnquiryActions
+                  listingId={listing.id}
+                  isLoggedIn={isLoggedIn}
+                  isTender={type?.slug === "tender-procurement-request"}
+                  initiallySaved={Boolean(saved)}
+                />
+              </div>
             </aside>
           </div>
         </div>

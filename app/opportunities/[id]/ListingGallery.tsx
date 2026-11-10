@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type GalleryImage = { id: string; url: string };
 
 export default function ListingGallery({ images }: { images: GalleryImage[] }) {
   const [active, setActive] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!lightboxOpen) return;
@@ -21,44 +22,34 @@ export default function ListingGallery({ images }: { images: GalleryImage[] }) {
 
   if (images.length === 0) return null;
 
-  return (
-    <section className="gallery">
-      <button
-        type="button"
-        className="gallery-hero"
-        onClick={() => {
-          setActive(0);
-          setLightboxOpen(true);
-        }}
-        aria-label="Open image gallery"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[0].url} alt="" />
-        {images.length > 1 && <span className="gallery-count">{images.length} photos</span>}
-      </button>
+  const looped = images.length > 1 ? [...images, ...images] : images;
 
-      {images.length > 1 && (
-        <div className="gallery-strip" role="list">
-          {images.slice(1, 5).map((img, i) => (
-            <button
-              type="button"
-              key={img.id}
-              className="gallery-thumb"
-              onClick={() => {
-                setActive(i + 1);
-                setLightboxOpen(true);
-              }}
-              aria-label={`Open photo ${i + 2}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt="" />
-              {i === 3 && images.length > 5 && (
-                <span className="gallery-more">+{images.length - 5}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+  function openAt(i: number) {
+    setActive(i);
+    setLightboxOpen(true);
+  }
+
+  return (
+    <section className="carousel">
+      <div
+        className={`carousel-track${images.length > 1 ? " auto-scroll" : ""}`}
+        ref={trackRef}
+        style={{ ["--slide-count" as string]: images.length }}
+      >
+        {looped.map((img, i) => (
+          <button
+            type="button"
+            key={`${img.id}-${i}`}
+            className="carousel-slide"
+            onClick={() => openAt(i % images.length)}
+            aria-label={`Open photo ${(i % images.length) + 1}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={img.url} alt="" />
+          </button>
+        ))}
+      </div>
+      {images.length > 1 && <span className="carousel-count">{images.length} photos</span>}
 
       {lightboxOpen && (
         <div className="modal-backdrop lightbox-backdrop" onClick={() => setLightboxOpen(false)}>

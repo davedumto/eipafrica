@@ -99,7 +99,11 @@ export default function EnquiryActions({
       <button className="btn-primary" type="button" onClick={() => open("interest")} disabled={sent.interest}>
         {sent.interest ? "Interest sent" : "Express interest"}
       </button>
-      <button className="btn-outline" type="button" onClick={() => open("question")} disabled={sent.question}>
+      <button className="btn-outline" type="button" onClick={() => open("question")} disabled={sent.question} style={{ gap: 8 }}>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="M2 3h12v8H5.5L2 14V3Z" strokeLinejoin="round" />
+          <path d="M5 6.5h6M5 9h4" strokeLinecap="round" />
+        </svg>
         {sent.question ? "Question sent" : "Ask a question"}
       </button>
       <button
@@ -107,7 +111,12 @@ export default function EnquiryActions({
         type="button"
         onClick={() => open("document_request")}
         disabled={sent.document_request}
+        style={{ gap: 8 }}
       >
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <path d="M4 1.5h5.5L13 5v9.5H4Z" strokeLinejoin="round" />
+          <path d="M9.5 1.5V5H13" strokeLinejoin="round" />
+        </svg>
         {sent.document_request ? "Request sent" : "Request documents"}
       </button>
       {isTender && (
@@ -116,10 +125,19 @@ export default function EnquiryActions({
         </p>
       )}
       <div style={{ display: "flex", gap: 10 }}>
-        <button className="btn-outline" type="button" onClick={toggleSave} disabled={savePending}>
+        <button className="btn-outline" type="button" onClick={toggleSave} disabled={savePending} style={{ flex: 1, gap: 8 }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d="M4 2h8v12l-4-2.5L4 14V2Z" strokeLinejoin="round" />
+          </svg>
           {saved ? "Saved" : "Save"}
         </button>
-        <button className="btn-outline" type="button" onClick={share}>
+        <button className="btn-outline" type="button" onClick={share} style={{ flex: 1, gap: 8 }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <circle cx="12.5" cy="3.5" r="1.75" />
+            <circle cx="3.5" cy="8" r="1.75" />
+            <circle cx="12.5" cy="12.5" r="1.75" />
+            <path d="M5.1 7.1 11 4.4M5.1 8.9 11 11.6" strokeLinecap="round" />
+          </svg>
           {sent.share ? "Link copied" : "Share"}
         </button>
       </div>

@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { listingTypes, listings, organizations, sectors } from "@/lib/db/schema";
+import { listingImages, listingTypes, listings, organizations, sectors } from "@/lib/db/schema";
+import { asc } from "drizzle-orm";
 import AppBar from "@/app/components/AppBar";
 import ReviewActions from "./ReviewActions";
 import { badgeClassForSlug, formatFieldValue, type FieldSchemaEntry } from "@/lib/listing-fields";
@@ -20,12 +21,17 @@ export default async function AdminReviewDetailPage({
   const [listing] = await db.select().from(listings).where(eq(listings.id, id)).limit(1);
   if (!listing) notFound();
 
-  const [[type], [org], [sector]] = await Promise.all([
+  const [[type], [org], [sector], images] = await Promise.all([
     db.select().from(listingTypes).where(eq(listingTypes.id, listing.listingTypeId)).limit(1),
     db.select().from(organizations).where(eq(organizations.id, listing.organizationId)).limit(1),
     listing.sectorId
       ? db.select().from(sectors).where(eq(sectors.id, listing.sectorId)).limit(1)
       : Promise.resolve([null]),
+    db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listing.id))
+      .orderBy(asc(listingImages.sortOrder), asc(listingImages.createdAt)),
   ]);
 
   const fieldSchema = (type?.fieldSchema ?? []) as FieldSchemaEntry[];
@@ -53,6 +59,36 @@ export default async function AdminReviewDetailPage({
               <span>Submitted {new Date(listing.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
+
+          {images.length > 0 && (
+            <section className="detail-section" style={{ marginTop: 24 }}>
+              <h2>Photos ({images.length})</h2>
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                {images.map((img) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={img.id}
+                    src={img.url}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      aspectRatio: "4 / 3",
+                      objectFit: "cover",
+                      borderRadius: 10,
+                      border: "1px solid rgba(16,17,20,0.08)",
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           <div className="detail-grid">
             <div>
@@ -121,9 +157,13 @@ export default async function AdminReviewDetailPage({
             </div>
 
             <aside className="detail-side">
-              <span className="org">{org?.name}</span>
-              {org?.isVerified && <span className="verified">✓ Verified organization</span>}
-              <ReviewActions listingId={listing.id} />
+              <div className="detail-side-org">
+                <span className="org">{org?.name}</span>
+                {org?.isVerified && <span className="verified">✓ Verified organization</span>}
+              </div>
+              <div className="detail-side-actions">
+                <ReviewActions listingId={listing.id} />
+              </div>
             </aside>
           </div>
         </div>
